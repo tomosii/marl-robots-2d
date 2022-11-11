@@ -11,17 +11,19 @@ OFFSET = 100
 
 AGENT_SIZE = 60
 ROOM_SIZE = 260
+GOAL_SIZE = 50
 CORRIDOR_WIDTH = AGENT_SIZE + 40
 
 BG_COLOR = (16, 16, 16)
-AGENT_BLUE = (97, 205, 205)
+AGENT_BLUE = (70, 180, 180)
+GOAL_BLUE = (50, 140, 140)
 ROOM_COLOR = (70, 70, 70)
-CORRIDOR_COLOR = (160, 160, 160)
+CORRIDOR_COLOR = (120, 120, 120)
 
 FPS = 60
 
 ACC = 0.5
-FRIC = -0.08
+FRIC = -0.12
 MAX_SPEED = 6
 
 screen = pygame.display.set_mode([WIDTH, HEIGHT])
@@ -46,6 +48,18 @@ class Room(pygame.sprite.Sprite):
 
         pygame.draw.rect(self.image, ROOM_COLOR, [
                          0, 0, ROOM_SIZE, ROOM_SIZE], 0, 20)
+
+        self.rect = self.image.get_rect()
+        self.rect.center = (center_x, center_y)
+
+
+class Goal(pygame.sprite.Sprite):
+    def __init__(self, center_x, center_y, color):
+        super().__init__()
+        self.image = pygame.Surface([GOAL_SIZE, GOAL_SIZE], pygame.SRCALPHA)
+
+        pygame.draw.rect(self.image, color, [
+                         0, 0, GOAL_SIZE, GOAL_SIZE], 0, 5)
 
         self.rect = self.image.get_rect()
         self.rect.center = (center_x, center_y)
@@ -130,10 +144,17 @@ class Agent(pygame.sprite.Sprite):
 
         self.rect.center = self.pos
 
+        # self.rect.clamp_ip(room1)
+        # self.pos = self.rect.center
+
 
 agent1 = Agent()
+
 room1 = Room(OFFSET + ROOM_SIZE // 2, HEIGHT - ROOM_SIZE // 2 - OFFSET)
 room2 = Room(WIDTH - ROOM_SIZE // 2 - OFFSET, OFFSET + ROOM_SIZE // 2)
+
+goal1 = Goal(room2.rect.centerx, room2.rect.centery, GOAL_BLUE)
+
 corridor1 = Corridor(room1.rect.center, room2.rect.center,
                      CorridorOrientation.HORIZONTAL, CorridorPosition.TOPLEFT)
 corridor2 = Corridor(room2.rect.center, room1.rect.center,
@@ -145,7 +166,7 @@ corridor4 = Corridor(room2.rect.center, room1.rect.center,
 
 
 all_sprites = pygame.sprite.Group(
-    room1, room2, corridor1, corridor2, corridor3, corridor4, agent1)
+    room1, room2, goal1, corridor1, corridor2, corridor3, corridor4, agent1)
 
 running = True
 while running:
@@ -159,6 +180,7 @@ while running:
     screen.fill(BG_COLOR)
 
     agent1.move()
+
     all_sprites.draw(screen)
 
     pygame.display.flip()
