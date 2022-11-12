@@ -27,8 +27,8 @@ AGENT_BLUE = (70, 180, 180)
 AGENT_GREEN = (111, 200, 96)
 GOAL_BLUE = (50, 140, 140)
 ROOM_COLOR = (70, 70, 70)
-CORRIDOR_COLOR = (120, 120, 120)
-WALL_COLOR = (200, 200, 200)
+CORRIDOR_COLOR = (150, 150, 150)
+WALL_COLOR = (170, 170, 170)
 INFO_BG_COLOR = (30, 30, 30)
 INFO_TEXT_COLOR = (220, 220, 220)
 
@@ -39,7 +39,7 @@ FRIC = -0.12
 MAX_SPEED = 6
 
 screen = pygame.display.set_mode([WIDTH + 2 * OFFSET, HEIGHT + OFFSET + INFO_HEIGHT])
-pygame.display.set_caption("Pygame Test")
+pygame.display.set_caption("Two Corridors")
 clock = pygame.time.Clock()
 
 
