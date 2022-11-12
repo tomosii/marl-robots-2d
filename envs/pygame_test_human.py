@@ -173,6 +173,7 @@ class Agent(pygame.sprite.Sprite):
 
         for wall in walls:
             if self.rect.colliderect(wall.rect):
+                return True
 
                 if (
                     self.rect.right > wall.rect.left
@@ -206,7 +207,7 @@ class Agent(pygame.sprite.Sprite):
                 self.rect.center = self.pos
                 self.vel = pygame.math.Vector2(0, 0)
 
-                return
+        return False
 
     def collide_obstacle(self, obstacle):
         if self.rect.colliderect(obstacle.rect):
@@ -491,7 +492,6 @@ if __name__ == "__main__":
         screen.blit(episode_text, (40, 80))
 
         agent.move()
-        agent.collide_walls(walls.sprites())
 
         obstacle.auto_move()
 
@@ -506,7 +506,7 @@ if __name__ == "__main__":
             reset()
             episode += 1
 
-        if agent.collide_obstacle(obstacle):
+        if agent.collide_obstacle(obstacle) or agent.collide_walls(walls.sprites()):
             result_text = result_font.render("FAILED", True, INFO_TEXT_COLOR)
             screen.blit(result_text, (400, 80))
             reset()
