@@ -1,4 +1,5 @@
 from enum import Enum
+import random
 from typing import List
 import pygame
 import sys
@@ -57,7 +58,7 @@ class Room(pygame.sprite.Sprite):
         super().__init__()
         self.image = pygame.Surface([ROOM_SIZE, ROOM_SIZE], pygame.SRCALPHA)
 
-        pygame.draw.rect(self.image, ROOM_COLOR, [0, 0, ROOM_SIZE, ROOM_SIZE], 0, 20)
+        pygame.draw.rect(self.image, ROOM_COLOR, [0, 0, ROOM_SIZE, ROOM_SIZE])
 
         self.rect = self.image.get_rect()
         self.rect.center = (center_x, center_y)
@@ -233,27 +234,18 @@ class Obstacle(pygame.sprite.Sprite):
         self.acc = pygame.math.Vector2(0, 0)
 
     def auto_move(self):
-        self.acc = pygame.math.Vector2(0, 0)
+        vel = 3
 
-        pressed_keys = pygame.key.get_pressed()
-
-        if pressed_keys[pygame.K_LEFT]:
-            self.acc.x = -ACC
-        if pressed_keys[pygame.K_RIGHT]:
-            self.acc.x = ACC
-        if pressed_keys[pygame.K_UP]:
-            self.acc.y = -ACC
-        if pressed_keys[pygame.K_DOWN]:
-            self.acc.y = ACC
-
-        self.acc += self.vel * FRIC
-        self.vel += self.acc
-
-        if self.vel.length() > MAX_SPEED:
-            self.vel.scale_to_length(MAX_SPEED)
-
-        # x = v0t + 1/2at^2
-        self.pos += self.vel + 0.5 * self.acc
+        if self.path == CorridorOrientation.HORIZONTAL:
+            if self.pos.x > ROOM_SIZE // 2:
+                self.pos.x -= vel
+            elif self.pos.y < HEIGHT - ROOM_SIZE // 2:
+                self.pos.y += vel
+        else:
+            if self.pos.y < HEIGHT - ROOM_SIZE // 2:
+                self.pos.y += vel
+            elif self.pos.x > ROOM_SIZE // 2:
+                self.pos.x -= vel
 
         self.rect.center = self.pos
 
@@ -262,6 +254,12 @@ class Obstacle(pygame.sprite.Sprite):
         self.vel = pygame.math.Vector2(0, 0)
         self.acc = pygame.math.Vector2(0, 0)
         self.rect.center = self.pos
+
+        rand = random.randint(0, 1)
+        if rand == 0:
+            self.path = CorridorOrientation.HORIZONTAL
+        else:
+            self.path = CorridorOrientation.VERTICAL
 
     def collide_walls(self, walls: List[Wall]):
         neligible = 0.1
@@ -340,6 +338,7 @@ corridor4 = Corridor(
 
 WALL_OUTER_LENGTH = HEIGHT - ROOM_SIZE - (ROOM_SIZE - CORRIDOR_WIDTH) // 2
 WALL_INNER_LENGTH = WALL_OUTER_LENGTH - CORRIDOR_WIDTH
+ROOM_WALL_LENGTH = (ROOM_SIZE - CORRIDOR_WIDTH) // 2
 
 
 walls = pygame.sprite.Group(
@@ -407,6 +406,38 @@ walls = pygame.sprite.Group(
         WALL_INNER_LENGTH,
         CorridorOrientation.HORIZONTAL,
     ),
+    Wall((0, HEIGHT - ROOM_SIZE), ROOM_SIZE, CorridorOrientation.VERTICAL),
+    Wall((0, HEIGHT), ROOM_SIZE, CorridorOrientation.HORIZONTAL),
+    Wall((WIDTH, 0), ROOM_SIZE, CorridorOrientation.VERTICAL),
+    Wall((WIDTH - ROOM_SIZE, 0), ROOM_SIZE, CorridorOrientation.HORIZONTAL),
+    Wall((0, HEIGHT - ROOM_SIZE), ROOM_WALL_LENGTH, CorridorOrientation.HORIZONTAL),
+    Wall(
+        (ROOM_SIZE - ROOM_WALL_LENGTH, HEIGHT - ROOM_SIZE),
+        ROOM_WALL_LENGTH,
+        CorridorOrientation.HORIZONTAL,
+    ),
+    Wall(
+        (ROOM_SIZE, HEIGHT - ROOM_SIZE), ROOM_WALL_LENGTH, CorridorOrientation.VERTICAL
+    ),
+    Wall(
+        (ROOM_SIZE, HEIGHT - ROOM_WALL_LENGTH),
+        ROOM_WALL_LENGTH,
+        CorridorOrientation.VERTICAL,
+    ),
+    Wall((WIDTH - ROOM_SIZE, 0), ROOM_WALL_LENGTH, CorridorOrientation.VERTICAL),
+    Wall(
+        (WIDTH - ROOM_SIZE, ROOM_SIZE - ROOM_WALL_LENGTH),
+        ROOM_WALL_LENGTH,
+        CorridorOrientation.VERTICAL,
+    ),
+    Wall(
+        (WIDTH - ROOM_SIZE, ROOM_SIZE), ROOM_WALL_LENGTH, CorridorOrientation.HORIZONTAL
+    ),
+    Wall(
+        (WIDTH - ROOM_WALL_LENGTH, ROOM_SIZE),
+        ROOM_WALL_LENGTH,
+        CorridorOrientation.HORIZONTAL,
+    ),
 )
 
 
@@ -462,20 +493,22 @@ if __name__ == "__main__":
         agent.move()
         agent.collide_walls(walls.sprites())
 
+        obstacle.auto_move()
+
         all_sprites.draw(map_screen)
         walls.draw(map_screen)
 
         pygame.display.flip()
 
         if agent.check_goal(goal1):
-            result_text = result_font.render("GOAL REACHED!", True, INFO_TEXT_COLOR)
-            screen.blit(result_text, (450, 80))
+            result_text = result_font.render("CLEAR !!", True, INFO_TEXT_COLOR)
+            screen.blit(result_text, (400, 80))
             reset()
             episode += 1
 
         if agent.collide_obstacle(obstacle):
             result_text = result_font.render("FAILED", True, INFO_TEXT_COLOR)
-            screen.blit(result_text, (450, 80))
+            screen.blit(result_text, (400, 80))
             reset()
             episode += 1
 
