@@ -18,13 +18,18 @@ GOAL_SIZE = 50
 CORRIDOR_WIDTH = AGENT_SIZE + 40
 WALL_WIDTH = 2
 
+AGENT_POS = (ROOM_SIZE // 2, HEIGHT - ROOM_SIZE // 2)
+OBSTACLE_POS = (WIDTH - ROOM_SIZE // 2, ROOM_SIZE // 2)
+
 BG_COLOR = (16, 16, 16)
 AGENT_BLUE = (70, 180, 180)
+AGENT_GREEN = (111, 200, 96)
 GOAL_BLUE = (50, 140, 140)
 ROOM_COLOR = (70, 70, 70)
 CORRIDOR_COLOR = (120, 120, 120)
 WALL_COLOR = (200, 200, 200)
 INFO_BG_COLOR = (30, 30, 30)
+INFO_TEXT_COLOR = (220, 220, 220)
 
 FPS = 60
 
@@ -119,15 +124,15 @@ class Corridor(pygame.sprite.Sprite):
 
 
 class Agent(pygame.sprite.Sprite):
-    def __init__(self, center_x, center_y):
+    def __init__(self, color):
         super().__init__()
         self.image = pygame.Surface([AGENT_SIZE, AGENT_SIZE], pygame.SRCALPHA)
         self.rect = self.image.get_rect()
         pygame.draw.circle(
-            self.image, AGENT_BLUE, (AGENT_SIZE // 2, AGENT_SIZE // 2), AGENT_SIZE // 2
+            self.image, color, (AGENT_SIZE // 2, AGENT_SIZE // 2), AGENT_SIZE // 2
         )
 
-        self.pos = pygame.math.Vector2(center_x, center_y)
+        self.pos = pygame.math.Vector2(0, 0)
         self.vel = pygame.math.Vector2(0, 0)
         self.acc = pygame.math.Vector2(0, 0)
 
@@ -156,6 +161,12 @@ class Agent(pygame.sprite.Sprite):
 
         self.rect.center = self.pos
 
+    def reset(self, pos):
+        self.pos = pygame.math.Vector2(pos)
+        self.vel = pygame.math.Vector2(0, 0)
+        self.acc = pygame.math.Vector2(0, 0)
+        self.rect.center = self.pos
+
     def collide_walls(self, walls: List[Wall]):
         neligible = 0.1
 
@@ -167,28 +178,124 @@ class Agent(pygame.sprite.Sprite):
                     and self.rect.left < wall.rect.left
                     and self.vel.x > 0
                 ):
-                    print("collide right")
+                    # print("collide right")
                     self.pos.x = wall.rect.left - AGENT_SIZE // 2
                 if (
                     self.rect.left < wall.rect.right
                     and self.rect.right > wall.rect.right
                     and self.vel.x < 0
                 ):
-                    print("collide left")
+                    # print("collide left")
                     self.pos.x = wall.rect.right + AGENT_SIZE // 2
                 if (
                     self.rect.bottom > wall.rect.top
                     and self.rect.top < wall.rect.top
                     and self.vel.y > 0
                 ):
-                    print("collide bottom")
+                    # print("collide bottom")
                     self.pos.y = wall.rect.top - AGENT_SIZE // 2
                 if (
                     self.rect.top < wall.rect.bottom
                     and self.rect.bottom > wall.rect.bottom
                     and self.vel.y < 0
                 ):
-                    print("collide top")
+                    # print("collide top")
+                    self.pos.y = wall.rect.bottom + AGENT_SIZE // 2
+
+                self.rect.center = self.pos
+                self.vel = pygame.math.Vector2(0, 0)
+
+                return
+
+    def collide_obstacle(self, obstacle):
+        if self.rect.colliderect(obstacle.rect):
+            self.vel = pygame.math.Vector2(0, 0)
+            return True
+        return False
+
+    def check_goal(self, goal: Goal):
+        if self.rect.colliderect(goal.rect):
+            return True
+        return False
+
+
+class Obstacle(pygame.sprite.Sprite):
+    def __init__(self, color):
+        super().__init__()
+        self.image = pygame.Surface([AGENT_SIZE, AGENT_SIZE], pygame.SRCALPHA)
+        self.rect = self.image.get_rect()
+        pygame.draw.circle(
+            self.image, color, (AGENT_SIZE // 2, AGENT_SIZE // 2), AGENT_SIZE // 2
+        )
+
+        self.pos = pygame.math.Vector2(0, 0)
+        self.vel = pygame.math.Vector2(0, 0)
+        self.acc = pygame.math.Vector2(0, 0)
+
+    def auto_move(self):
+        self.acc = pygame.math.Vector2(0, 0)
+
+        pressed_keys = pygame.key.get_pressed()
+
+        if pressed_keys[pygame.K_LEFT]:
+            self.acc.x = -ACC
+        if pressed_keys[pygame.K_RIGHT]:
+            self.acc.x = ACC
+        if pressed_keys[pygame.K_UP]:
+            self.acc.y = -ACC
+        if pressed_keys[pygame.K_DOWN]:
+            self.acc.y = ACC
+
+        self.acc += self.vel * FRIC
+        self.vel += self.acc
+
+        if self.vel.length() > MAX_SPEED:
+            self.vel.scale_to_length(MAX_SPEED)
+
+        # x = v0t + 1/2at^2
+        self.pos += self.vel + 0.5 * self.acc
+
+        self.rect.center = self.pos
+
+    def reset(self, pos):
+        self.pos = pygame.math.Vector2(pos)
+        self.vel = pygame.math.Vector2(0, 0)
+        self.acc = pygame.math.Vector2(0, 0)
+        self.rect.center = self.pos
+
+    def collide_walls(self, walls: List[Wall]):
+        neligible = 0.1
+
+        for wall in walls:
+            if self.rect.colliderect(wall.rect):
+
+                if (
+                    self.rect.right > wall.rect.left
+                    and self.rect.left < wall.rect.left
+                    and self.vel.x > 0
+                ):
+                    # print("collide right")
+                    self.pos.x = wall.rect.left - AGENT_SIZE // 2
+                if (
+                    self.rect.left < wall.rect.right
+                    and self.rect.right > wall.rect.right
+                    and self.vel.x < 0
+                ):
+                    # print("collide left")
+                    self.pos.x = wall.rect.right + AGENT_SIZE // 2
+                if (
+                    self.rect.bottom > wall.rect.top
+                    and self.rect.top < wall.rect.top
+                    and self.vel.y > 0
+                ):
+                    # print("collide bottom")
+                    self.pos.y = wall.rect.top - AGENT_SIZE // 2
+                if (
+                    self.rect.top < wall.rect.bottom
+                    and self.rect.bottom > wall.rect.bottom
+                    and self.vel.y < 0
+                ):
+                    # print("collide top")
                     self.pos.y = wall.rect.bottom + AGENT_SIZE // 2
 
                 self.rect.center = self.pos
@@ -197,7 +304,9 @@ class Agent(pygame.sprite.Sprite):
                 return
 
 
-agent1 = Agent(ROOM_SIZE // 2, HEIGHT - ROOM_SIZE // 2)
+agent = Agent(AGENT_BLUE)
+obstacle = Obstacle(AGENT_GREEN)
+
 
 room1 = Room(ROOM_SIZE // 2, HEIGHT - ROOM_SIZE // 2)
 room2 = Room(WIDTH - ROOM_SIZE // 2, ROOM_SIZE // 2)
@@ -309,7 +418,8 @@ all_sprites = pygame.sprite.Group(
     corridor2,
     corridor3,
     corridor4,
-    agent1,
+    agent,
+    obstacle,
 )
 
 map_screen = pygame.Surface((WIDTH, HEIGHT))
@@ -320,27 +430,56 @@ map_screen.fill(BG_COLOR)
 info_screen.fill(BG_COLOR)
 
 
-running = True
-while running:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_ESCAPE:
-                running = False
-
-    screen.blit(map_screen, (OFFSET, INFO_HEIGHT))
-    screen.blit(info_screen, (0, 0))
-
-    agent1.move()
-    agent1.collide_walls(walls.sprites())
-
-    all_sprites.draw(map_screen)
-
-    walls.draw(map_screen)
-
+def reset():
     pygame.display.flip()
-    clock.tick(FPS)
+    pygame.time.wait(800)
+    agent.reset(AGENT_POS)
+    obstacle.reset(OBSTACLE_POS)
 
-pygame.quit()
-sys.exit()
+
+if __name__ == "__main__":
+    reset()
+
+    episode = 0
+    font = pygame.font.SysFont("Arial", 30)
+    result_font = pygame.font.SysFont("Arial", 45)
+
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    running = False
+
+        episode_text = font.render(f"Episode: {episode}", True, INFO_TEXT_COLOR)
+
+        screen.blit(map_screen, (OFFSET, INFO_HEIGHT))
+        screen.blit(info_screen, (0, 0))
+        screen.blit(episode_text, (40, 80))
+
+        agent.move()
+        agent.collide_walls(walls.sprites())
+
+        all_sprites.draw(map_screen)
+        walls.draw(map_screen)
+
+        pygame.display.flip()
+
+        if agent.check_goal(goal1):
+            result_text = result_font.render("GOAL REACHED!", True, INFO_TEXT_COLOR)
+            screen.blit(result_text, (450, 80))
+            reset()
+            episode += 1
+
+        if agent.collide_obstacle(obstacle):
+            result_text = result_font.render("FAILED", True, INFO_TEXT_COLOR)
+            screen.blit(result_text, (450, 80))
+            reset()
+            episode += 1
+
+        clock.tick(FPS)
+
+    pygame.quit()
+    sys.exit()
