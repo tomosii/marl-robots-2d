@@ -21,28 +21,31 @@ CORRIDOR_WIDTH = AGENT_SIZE + 40
 WALL_WIDTH = 2
 
 AGENT_POS = (ROOM_SIZE // 2, HEIGHT - ROOM_SIZE // 2)
-OBSTACLE_POS = (WIDTH - ROOM_SIZE // 2, ROOM_SIZE // 2)
+NPC_POS = (WIDTH - ROOM_SIZE // 2, ROOM_SIZE // 2)
 
-BG_COLOR = (12, 14, 14)
+BG_COLOR = (10, 16, 21)
 AGENT_BLUE = (70, 180, 180)
 AGENT_GREEN = (111, 200, 96)
-GOAL_BLUE = (50, 140, 140)
-ROOM_COLOR = (30, 32, 33)
-CORRIDOR_COLOR = (50, 53, 54)
-WALL_COLOR = (60, 60, 60)
+GOAL_BLUE = (60, 150, 150)
+ROOM_COLOR = (45, 50, 56)
+CORRIDOR_COLOR = (80, 85, 93)
+WALL_COLOR = (60, 67, 75)
 INFO_BG_COLOR = (30, 30, 30)
 INFO_TEXT_COLOR = (220, 220, 220)
-LASER_COLOR = (75, 75, 75)
+INFO_TEXT_COLOR2 = (140, 140, 140)
+LASER_COLOR = (100, 105, 115)
+LASER_POINT_COLOR = (200, 60, 60)
 
 FPS = 60
 
-ACC = 0.7
+ACC = 1.2
 FRIC = -0.12
 MAX_SPEED = 6
-OBSTACLE_VEL = 5
+NPC_VEL = 5
 
 LIDAR_ANGLE = 360
 LIDAR_INTERVAL = 45
+LIDAR_RANGE = 1200
 
 screen = pygame.display.set_mode([WIDTH + 2 * OFFSET, HEIGHT + OFFSET + INFO_HEIGHT])
 pygame.display.set_caption("Two Corridors")
@@ -84,16 +87,21 @@ class Goal(pygame.sprite.Sprite):
 class Wall(pygame.sprite.Sprite):
     def __init__(self, start, length, orientation):
         super().__init__()
+
+        self.start = start
+
         if orientation == CorridorOrientation.HORIZONTAL:
             width = length
             height = WALL_WIDTH
             center_x = start[0] + length / 2
             center_y = start[1]
+            self.end = (start[0] + length, start[1])
         else:
             width = WALL_WIDTH
             height = length
             center_x = start[0]
             center_y = start[1] + length / 2
+            self.end = (start[0], start[1] + length)
         self.image = pygame.Surface([width, height], pygame.SRCALPHA)
         pygame.draw.rect(self.image, WALL_COLOR, [0, 0, width, height])
         self.rect = self.image.get_rect()
@@ -180,8 +188,8 @@ class Agent(pygame.sprite.Sprite):
                 return True
         return False
 
-    def collide_obstacle(self, obstacle):
-        if self.rect.colliderect(obstacle.rect):
+    def collide_npc(self, npc):
+        if self.rect.colliderect(npc.rect):
             self.vel = pygame.math.Vector2(0, 0)
             return True
         return False
@@ -192,16 +200,20 @@ class Agent(pygame.sprite.Sprite):
         return False
 
     def create_lasers(self):
-        return [
-            (
-                self.pos.x + 1200 * math.cos(math.radians(angle)),
-                self.pos.y + 1200 * math.sin(math.radians(angle)),
+        lasers = []
+        for angle in range(0, -LIDAR_ANGLE, -LIDAR_INTERVAL):
+            laser = (
+                (self.pos.x, self.pos.y),
+                (
+                    self.pos.x + LIDAR_RANGE * math.cos(math.radians(angle)),
+                    self.pos.y + LIDAR_RANGE * math.sin(math.radians(angle)),
+                ),
             )
-            for angle in range(0, -LIDAR_ANGLE, -LIDAR_INTERVAL)
-        ]
+            lasers.append(laser)
+        return lasers
 
 
-class Obstacle(pygame.sprite.Sprite):
+class NPC(pygame.sprite.Sprite):
     def __init__(self, color):
         super().__init__()
         self.image = pygame.Surface([AGENT_SIZE, AGENT_SIZE], pygame.SRCALPHA)
@@ -217,14 +229,14 @@ class Obstacle(pygame.sprite.Sprite):
     def auto_move(self):
         if self.path == CorridorOrientation.HORIZONTAL:
             if self.pos.x > ROOM_SIZE // 2:
-                self.pos.x -= OBSTACLE_VEL
+                self.pos.x -= NPC_VEL
             elif self.pos.y < HEIGHT - ROOM_SIZE // 2:
-                self.pos.y += OBSTACLE_VEL
+                self.pos.y += NPC_VEL
         else:
             if self.pos.y < HEIGHT - ROOM_SIZE // 2:
-                self.pos.y += OBSTACLE_VEL
+                self.pos.y += NPC_VEL
             elif self.pos.x > ROOM_SIZE // 2:
-                self.pos.x -= OBSTACLE_VEL
+                self.pos.x -= NPC_VEL
 
         self.rect.center = self.pos
 
@@ -242,7 +254,7 @@ class Obstacle(pygame.sprite.Sprite):
 
 
 agent = Agent(AGENT_BLUE)
-obstacle = Obstacle(AGENT_GREEN)
+npc = NPC(AGENT_GREEN)
 
 
 room1 = Room(ROOM_SIZE // 2, HEIGHT - ROOM_SIZE // 2)
@@ -390,30 +402,73 @@ maps = pygame.sprite.Group(
     corridor4,
 )
 
-agents = pygame.sprite.Group(agent, obstacle)
+players = pygame.sprite.Group(agent, npc)
 
 map_screen = pygame.Surface((WIDTH, HEIGHT))
 info_screen = pygame.Surface((WIDTH + 2 * OFFSET, INFO_HEIGHT))
 
 
 def line_intersect(p0, p1, q0, q1):
+    """
+    2つの直線PとQの交点を計算
+    pからp+rに向かう直線とqからq+sに向かう直線が
+    p+trおよびq+usで交わるようなtとuを求める
+    """
+    det = (p1[0] - p0[0]) * (q1[1] - q0[1]) + (p1[1] - p0[1]) * (q0[0] - q1[0])
+    if det != 0:
+        t = (
+            (q0[0] - p0[0]) * (q1[1] - q0[1]) + (q0[1] - p0[1]) * (q0[0] - q1[0])
+        ) / det
+        u = (
+            (q0[0] - p0[0]) * (p1[1] - p0[1]) + (q0[1] - p0[1]) * (p0[0] - p1[0])
+        ) / det
+        if 0 <= t <= 1 and 0 <= u <= 1:
+            return (p0[0] + t * (p1[0] - p0[0]), p0[1] + t * (p1[1] - p0[1]))
+    return None
 
-    pass
+
+def laser_scan(laser, obstacle_lines):
+    min_intersection = laser[1]
+    min_distance = LIDAR_RANGE
+    for obstacle in obstacle_lines:
+        intersection = line_intersect(laser[0], laser[1], obstacle[0], obstacle[1])
+        if intersection is not None:
+            distance = math.sqrt(
+                (intersection[0] - laser[0][0]) ** 2
+                + (intersection[1] - laser[0][1]) ** 2
+            )
+            if distance < min_distance:
+                min_distance = distance
+                min_intersection = intersection
+
+    return min_intersection
+
+
+def get_obstacle_lines(walls, npc):
+    lines = []
+    for wall in walls:
+        lines.append((wall.start, wall.end))
+    lines.append((npc.rect.topleft, npc.rect.topright))
+    lines.append((npc.rect.topleft, npc.rect.bottomleft))
+    lines.append((npc.rect.topright, npc.rect.bottomright))
+    lines.append((npc.rect.bottomleft, npc.rect.bottomright))
+    return lines
 
 
 def reset():
     pygame.display.flip()
     pygame.time.wait(200)
     agent.reset(AGENT_POS)
-    obstacle.reset(OBSTACLE_POS)
+    npc.reset(NPC_POS)
 
 
 if __name__ == "__main__":
     reset()
 
     episode = 0
-    font = pygame.font.SysFont("Arial", 30)
-    result_font = pygame.font.SysFont("Arial", 45)
+    font = pygame.font.SysFont("ubuntu", 30)
+    result_font = pygame.font.SysFont("ubuntu", 45)
+    distance_font = pygame.font.SysFont("ubuntu", 20)
 
     running = True
     while running:
@@ -436,18 +491,25 @@ if __name__ == "__main__":
         walls.draw(map_screen)
 
         agent.move()
-        obstacle.auto_move()
+        npc.auto_move()
+
+        distance_text = distance_font.render(
+            f"Ditance from goal: 0", True, INFO_TEXT_COLOR2
+        )
 
         lasers = agent.create_lasers()
+        obstacle_lines = get_obstacle_lines(walls, npc)
         for laser in lasers:
-            intersection = lidar_wall_intersect(P)
+            intersection = laser_scan(laser, obstacle_lines)
             pygame.draw.line(map_screen, LASER_COLOR, agent.pos, intersection)
+            pygame.draw.circle(map_screen, LASER_POINT_COLOR, intersection, 2)
 
-        agents.draw(map_screen)
+        players.draw(map_screen)
 
         screen.blit(map_screen, (OFFSET, INFO_HEIGHT))
         screen.blit(info_screen, (0, 0))
         screen.blit(episode_text, (40, 80))
+        screen.blit(distance_text, (40, 140))
 
         pygame.display.flip()
 
@@ -457,7 +519,7 @@ if __name__ == "__main__":
             reset()
             episode += 1
 
-        if agent.collide_obstacle(obstacle) or agent.collide_walls(walls.sprites()):
+        if agent.collide_npc(npc) or agent.collide_walls(walls.sprites()):
             result_text = result_font.render("FAILED", True, INFO_TEXT_COLOR)
             screen.blit(result_text, (400, 80))
             reset()
