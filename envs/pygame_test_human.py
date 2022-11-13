@@ -9,8 +9,8 @@ from typing import List
 
 pygame.init()
 
-WIDTH = 700
-HEIGHT = 700
+WIDTH = 600
+HEIGHT = 600
 OFFSET = 100
 INFO_HEIGHT = 220
 INFO_MARGIN = 40
@@ -31,7 +31,7 @@ AGENT_BLUE = (70, 180, 180)
 AGENT_GREEN = (111, 200, 96)
 GOAL_BLUE = (60, 150, 150)
 ROOM_COLOR = (45, 50, 56)
-CORRIDOR_COLOR = (80, 85, 93)
+CORRIDOR_COLOR = (80, 85, 90)
 WALL_COLOR = (60, 67, 75)
 INFO_BG_COLOR = (30, 33, 36)
 INFO_TEXT_COLOR = (220, 220, 220)
@@ -47,7 +47,7 @@ MAX_SPEED = 6
 NPC_VEL = 6
 
 LIDAR_ANGLE = 360
-LIDAR_INTERVAL = 10
+LIDAR_INTERVAL = 45
 LIDAR_RANGE = 1200
 
 
@@ -515,7 +515,7 @@ if __name__ == "__main__":
             f"Timestep: 0", True, INFO_TEXT_COLOR2
         )
         distance_text = info_font.render(
-            f"Ditance from goal: {agent.distance_from_goal(goal1):.0f}",
+            f"Distance from goal: {agent.distance_from_goal(goal1):.0f}",
             True,
             INFO_TEXT_COLOR2,
         )
