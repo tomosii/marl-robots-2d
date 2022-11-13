@@ -12,7 +12,10 @@ pygame.init()
 WIDTH = 700
 HEIGHT = 700
 OFFSET = 100
-INFO_HEIGHT = 200
+INFO_HEIGHT = 220
+INFO_MARGIN = 40
+WINDOW_WIDTH = WIDTH + 2 * OFFSET
+WINDOW_HEIGHT = HEIGHT + OFFSET + INFO_HEIGHT
 
 AGENT_SIZE = 60
 ROOM_SIZE = 260
@@ -30,9 +33,9 @@ GOAL_BLUE = (60, 150, 150)
 ROOM_COLOR = (45, 50, 56)
 CORRIDOR_COLOR = (80, 85, 93)
 WALL_COLOR = (60, 67, 75)
-INFO_BG_COLOR = (30, 30, 30)
+INFO_BG_COLOR = (30, 33, 36)
 INFO_TEXT_COLOR = (220, 220, 220)
-INFO_TEXT_COLOR2 = (140, 140, 140)
+INFO_TEXT_COLOR2 = (145, 150, 155)
 LASER_COLOR = (100, 105, 115)
 LASER_POINT_COLOR = (200, 60, 60)
 
@@ -41,13 +44,13 @@ FPS = 60
 ACC = 1.2
 FRIC = -0.12
 MAX_SPEED = 6
-NPC_VEL = 5
+NPC_VEL = 6
 
 LIDAR_ANGLE = 360
-LIDAR_INTERVAL = 45
+LIDAR_INTERVAL = 10
 LIDAR_RANGE = 1200
 
-screen = pygame.display.set_mode([WIDTH + 2 * OFFSET, HEIGHT + OFFSET + INFO_HEIGHT])
+
 pygame.display.set_caption("Two Corridors")
 clock = pygame.time.Clock()
 
@@ -211,6 +214,12 @@ class Agent(pygame.sprite.Sprite):
             )
             lasers.append(laser)
         return lasers
+
+    def distance_from_goal(self, goal):
+        return math.sqrt(
+            (self.pos.x - goal.rect.center[0]) ** 2
+            + (self.pos.y - goal.rect.center[1]) ** 2
+        )
 
 
 class NPC(pygame.sprite.Sprite):
@@ -404,8 +413,9 @@ maps = pygame.sprite.Group(
 
 players = pygame.sprite.Group(agent, npc)
 
+screen = pygame.display.set_mode([WINDOW_WIDTH, WINDOW_HEIGHT])
 map_screen = pygame.Surface((WIDTH, HEIGHT))
-info_screen = pygame.Surface((WIDTH + 2 * OFFSET, INFO_HEIGHT))
+info_screen = pygame.Surface((WINDOW_WIDTH, INFO_HEIGHT))
 
 
 def line_intersect(p0, p1, q0, q1):
@@ -466,9 +476,9 @@ if __name__ == "__main__":
     reset()
 
     episode = 0
-    font = pygame.font.SysFont("ubuntu", 30)
+    episode_font = pygame.font.SysFont("ubuntu", 30)
     result_font = pygame.font.SysFont("ubuntu", 45)
-    distance_font = pygame.font.SysFont("ubuntu", 20)
+    info_font = pygame.font.SysFont("ubuntu", 22)
 
     running = True
     while running:
@@ -481,8 +491,6 @@ if __name__ == "__main__":
                 if event.key == pygame.K_ESCAPE:
                     running = False
 
-        episode_text = font.render(f"Episode: {episode}", True, INFO_TEXT_COLOR)
-
         screen.fill(BG_COLOR)
         map_screen.fill(BG_COLOR)
         info_screen.fill(BG_COLOR)
@@ -493,23 +501,42 @@ if __name__ == "__main__":
         agent.move()
         npc.auto_move()
 
-        distance_text = distance_font.render(
-            f"Ditance from goal: 0", True, INFO_TEXT_COLOR2
-        )
-
         lasers = agent.create_lasers()
         obstacle_lines = get_obstacle_lines(walls, npc)
         for laser in lasers:
             intersection = laser_scan(laser, obstacle_lines)
             pygame.draw.line(map_screen, LASER_COLOR, agent.pos, intersection)
-            pygame.draw.circle(map_screen, LASER_POINT_COLOR, intersection, 2)
+            pygame.draw.circle(map_screen, LASER_POINT_COLOR, intersection, 2.5)
 
         players.draw(map_screen)
 
+        episode_text = episode_font.render(f"Episode: {episode}", True, INFO_TEXT_COLOR)
+        timestep_text = distance_text = info_font.render(
+            f"Timestep: 0", True, INFO_TEXT_COLOR2
+        )
+        distance_text = info_font.render(
+            f"Ditance from goal: {agent.distance_from_goal(goal1):.0f}",
+            True,
+            INFO_TEXT_COLOR2,
+        )
+        pygame.draw.rect(
+            info_screen,
+            INFO_BG_COLOR,
+            (
+                INFO_MARGIN,
+                INFO_MARGIN,
+                WINDOW_WIDTH - 2 * INFO_MARGIN,
+                INFO_HEIGHT - 2 * INFO_MARGIN,
+            ),
+            0,
+            20,
+        )
+        info_screen.blit(episode_text, (INFO_MARGIN + 24, INFO_MARGIN + 20))
+        info_screen.blit(timestep_text, (INFO_MARGIN + 24, INFO_MARGIN + 65))
+        info_screen.blit(distance_text, (INFO_MARGIN + 24, INFO_MARGIN + 95))
+
         screen.blit(map_screen, (OFFSET, INFO_HEIGHT))
         screen.blit(info_screen, (0, 0))
-        screen.blit(episode_text, (40, 80))
-        screen.blit(distance_text, (40, 140))
 
         pygame.display.flip()
 
