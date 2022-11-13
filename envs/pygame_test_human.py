@@ -1,8 +1,9 @@
-from enum import Enum
-import random
-from typing import List
 import pygame
+import math
+import random
 import sys
+from enum import Enum
+from typing import List
 
 # from pygame import gfxdraw
 
@@ -22,21 +23,26 @@ WALL_WIDTH = 2
 AGENT_POS = (ROOM_SIZE // 2, HEIGHT - ROOM_SIZE // 2)
 OBSTACLE_POS = (WIDTH - ROOM_SIZE // 2, ROOM_SIZE // 2)
 
-BG_COLOR = (16, 16, 16)
+BG_COLOR = (12, 14, 14)
 AGENT_BLUE = (70, 180, 180)
 AGENT_GREEN = (111, 200, 96)
 GOAL_BLUE = (50, 140, 140)
-ROOM_COLOR = (70, 70, 70)
-CORRIDOR_COLOR = (150, 150, 150)
-WALL_COLOR = (170, 170, 170)
+ROOM_COLOR = (30, 32, 33)
+CORRIDOR_COLOR = (50, 53, 54)
+WALL_COLOR = (60, 60, 60)
 INFO_BG_COLOR = (30, 30, 30)
 INFO_TEXT_COLOR = (220, 220, 220)
+LASER_COLOR = (75, 75, 75)
 
 FPS = 60
 
-ACC = 0.5
+ACC = 0.7
 FRIC = -0.12
 MAX_SPEED = 6
+OBSTACLE_VEL = 5
+
+LIDAR_ANGLE = 360
+LIDAR_INTERVAL = 45
 
 screen = pygame.display.set_mode([WIDTH + 2 * OFFSET, HEIGHT + OFFSET + INFO_HEIGHT])
 pygame.display.set_caption("Two Corridors")
@@ -169,44 +175,9 @@ class Agent(pygame.sprite.Sprite):
         self.rect.center = self.pos
 
     def collide_walls(self, walls: List[Wall]):
-        neligible = 0.1
-
         for wall in walls:
             if self.rect.colliderect(wall.rect):
                 return True
-
-                if (
-                    self.rect.right > wall.rect.left
-                    and self.rect.left < wall.rect.left
-                    and self.vel.x > 0
-                ):
-                    # print("collide right")
-                    self.pos.x = wall.rect.left - AGENT_SIZE // 2
-                if (
-                    self.rect.left < wall.rect.right
-                    and self.rect.right > wall.rect.right
-                    and self.vel.x < 0
-                ):
-                    # print("collide left")
-                    self.pos.x = wall.rect.right + AGENT_SIZE // 2
-                if (
-                    self.rect.bottom > wall.rect.top
-                    and self.rect.top < wall.rect.top
-                    and self.vel.y > 0
-                ):
-                    # print("collide bottom")
-                    self.pos.y = wall.rect.top - AGENT_SIZE // 2
-                if (
-                    self.rect.top < wall.rect.bottom
-                    and self.rect.bottom > wall.rect.bottom
-                    and self.vel.y < 0
-                ):
-                    # print("collide top")
-                    self.pos.y = wall.rect.bottom + AGENT_SIZE // 2
-
-                self.rect.center = self.pos
-                self.vel = pygame.math.Vector2(0, 0)
-
         return False
 
     def collide_obstacle(self, obstacle):
@@ -219,6 +190,15 @@ class Agent(pygame.sprite.Sprite):
         if self.rect.colliderect(goal.rect):
             return True
         return False
+
+    def create_lasers(self):
+        return [
+            (
+                self.pos.x + 1200 * math.cos(math.radians(angle)),
+                self.pos.y + 1200 * math.sin(math.radians(angle)),
+            )
+            for angle in range(0, -LIDAR_ANGLE, -LIDAR_INTERVAL)
+        ]
 
 
 class Obstacle(pygame.sprite.Sprite):
@@ -235,18 +215,16 @@ class Obstacle(pygame.sprite.Sprite):
         self.acc = pygame.math.Vector2(0, 0)
 
     def auto_move(self):
-        vel = 3
-
         if self.path == CorridorOrientation.HORIZONTAL:
             if self.pos.x > ROOM_SIZE // 2:
-                self.pos.x -= vel
+                self.pos.x -= OBSTACLE_VEL
             elif self.pos.y < HEIGHT - ROOM_SIZE // 2:
-                self.pos.y += vel
+                self.pos.y += OBSTACLE_VEL
         else:
             if self.pos.y < HEIGHT - ROOM_SIZE // 2:
-                self.pos.y += vel
+                self.pos.y += OBSTACLE_VEL
             elif self.pos.x > ROOM_SIZE // 2:
-                self.pos.x -= vel
+                self.pos.x -= OBSTACLE_VEL
 
         self.rect.center = self.pos
 
@@ -261,46 +239,6 @@ class Obstacle(pygame.sprite.Sprite):
             self.path = CorridorOrientation.HORIZONTAL
         else:
             self.path = CorridorOrientation.VERTICAL
-
-    def collide_walls(self, walls: List[Wall]):
-        neligible = 0.1
-
-        for wall in walls:
-            if self.rect.colliderect(wall.rect):
-
-                if (
-                    self.rect.right > wall.rect.left
-                    and self.rect.left < wall.rect.left
-                    and self.vel.x > 0
-                ):
-                    # print("collide right")
-                    self.pos.x = wall.rect.left - AGENT_SIZE // 2
-                if (
-                    self.rect.left < wall.rect.right
-                    and self.rect.right > wall.rect.right
-                    and self.vel.x < 0
-                ):
-                    # print("collide left")
-                    self.pos.x = wall.rect.right + AGENT_SIZE // 2
-                if (
-                    self.rect.bottom > wall.rect.top
-                    and self.rect.top < wall.rect.top
-                    and self.vel.y > 0
-                ):
-                    # print("collide bottom")
-                    self.pos.y = wall.rect.top - AGENT_SIZE // 2
-                if (
-                    self.rect.top < wall.rect.bottom
-                    and self.rect.bottom > wall.rect.bottom
-                    and self.vel.y < 0
-                ):
-                    # print("collide top")
-                    self.pos.y = wall.rect.bottom + AGENT_SIZE // 2
-
-                self.rect.center = self.pos
-                self.vel = pygame.math.Vector2(0, 0)
-
-                return
 
 
 agent = Agent(AGENT_BLUE)
@@ -442,7 +380,7 @@ walls = pygame.sprite.Group(
 )
 
 
-all_sprites = pygame.sprite.Group(
+maps = pygame.sprite.Group(
     room1,
     room2,
     goal1,
@@ -450,21 +388,22 @@ all_sprites = pygame.sprite.Group(
     corridor2,
     corridor3,
     corridor4,
-    agent,
-    obstacle,
 )
+
+agents = pygame.sprite.Group(agent, obstacle)
 
 map_screen = pygame.Surface((WIDTH, HEIGHT))
 info_screen = pygame.Surface((WIDTH + 2 * OFFSET, INFO_HEIGHT))
 
-screen.fill(BG_COLOR)
-map_screen.fill(BG_COLOR)
-info_screen.fill(BG_COLOR)
+
+def line_intersect(p0, p1, q0, q1):
+
+    pass
 
 
 def reset():
     pygame.display.flip()
-    pygame.time.wait(800)
+    pygame.time.wait(200)
     agent.reset(AGENT_POS)
     obstacle.reset(OBSTACLE_POS)
 
@@ -478,6 +417,8 @@ if __name__ == "__main__":
 
     running = True
     while running:
+        clock.tick(FPS)
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -487,16 +428,26 @@ if __name__ == "__main__":
 
         episode_text = font.render(f"Episode: {episode}", True, INFO_TEXT_COLOR)
 
+        screen.fill(BG_COLOR)
+        map_screen.fill(BG_COLOR)
+        info_screen.fill(BG_COLOR)
+
+        maps.draw(map_screen)
+        walls.draw(map_screen)
+
+        agent.move()
+        obstacle.auto_move()
+
+        lasers = agent.create_lasers()
+        for laser in lasers:
+            intersection = lidar_wall_intersect(P)
+            pygame.draw.line(map_screen, LASER_COLOR, agent.pos, intersection)
+
+        agents.draw(map_screen)
+
         screen.blit(map_screen, (OFFSET, INFO_HEIGHT))
         screen.blit(info_screen, (0, 0))
         screen.blit(episode_text, (40, 80))
-
-        agent.move()
-
-        obstacle.auto_move()
-
-        all_sprites.draw(map_screen)
-        walls.draw(map_screen)
 
         pygame.display.flip()
 
@@ -511,8 +462,6 @@ if __name__ == "__main__":
             screen.blit(result_text, (400, 80))
             reset()
             episode += 1
-
-        clock.tick(FPS)
 
     pygame.quit()
     sys.exit()
