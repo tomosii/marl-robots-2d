@@ -35,7 +35,7 @@ class SingleAgentEnv(gym.Env):
     FONT_NAME = "Arial"
 
     REWARD_SUCCESS = 100
-    REWARD_FAILURE = -1
+    REWARD_FAILURE = -5
     REWARD_TIME_PENALTY = -0.1
 
     MAX_EPISODE_STEPS = 300

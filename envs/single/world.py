@@ -96,7 +96,7 @@ class SimpleWorld(World):
     room1 = Room(ROOM_SIZE // 2, HEIGHT - ROOM_SIZE // 2, ROOM_SIZE, ROOM_COLOR)
     room2 = Room(WIDTH - ROOM_SIZE // 2, ROOM_SIZE // 2, ROOM_SIZE, ROOM_COLOR)
     # goal = Goal(room2.rect.centerx, room2.rect.centery, GOAL_SIZE, GOAL_BLUE)
-    goal = Goal(room2.rect.centerx, room1.rect.centery, GOAL_SIZE, GOAL_BLUE)
+    goal = Goal(room2.rect.centerx, room1.rect.centery - 50, GOAL_SIZE, GOAL_BLUE)
     maps = pygame.sprite.Group(
         room1,
         room2,
