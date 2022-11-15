@@ -35,10 +35,10 @@ class SingleAgentEnv(gym.Env):
     FONT_NAME = "Arial"
 
     REWARD_SUCCESS = 10
-    REWARD_FAILURE = -10
+    REWARD_FAILURE = -1
     REWARD_TIME_PENALTY = -0.1
 
-    MAX_EPISODE_STEPS = 400
+    MAX_EPISODE_STEPS = 300
 
     def __init__(self, render_mode=None):
         super().__init__()
@@ -138,7 +138,7 @@ class SingleAgentEnv(gym.Env):
         elif self.failed:
             return self.REWARD_FAILURE
         else:
-            return self.REWARD_TIME_PENALTY
+            return -1 * (self.goal_distance / self.world.LIDAR_RANGE)
 
     def __get_observation(self) -> List[float]:
         """
