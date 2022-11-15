@@ -48,14 +48,16 @@ class Agent(pygame.sprite.Sprite):
         if action == 3:
             self.acc.y = self.ACC
 
-        self.acc += self.vel * self.FRIC
-        self.vel += self.acc
+        # self.acc += self.vel * self.FRIC
+        # self.vel += self.acc
 
-        if self.vel.length() > self.MAX_SPEED:
-            self.vel.scale_to_length(self.MAX_SPEED)
+        # if self.vel.length() > self.MAX_SPEED:
+        #     self.vel.scale_to_length(self.MAX_SPEED)
 
         # x = v0t + 1/2at^2
-        self.pos += self.vel + 0.5 * self.acc
+        # self.pos += self.vel + 0.5 * self.acc
+
+        self.pos += self.acc * 10
 
         self.rect.center = self.pos
 

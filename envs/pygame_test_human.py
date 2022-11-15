@@ -168,14 +168,16 @@ class Agent(pygame.sprite.Sprite):
         if pressed_keys[pygame.K_DOWN]:
             self.acc.y = ACC
 
-        self.acc += self.vel * FRIC
-        self.vel += self.acc
+        # self.acc += self.vel * FRIC
+        # self.vel += self.acc
 
-        if self.vel.length() > MAX_SPEED:
-            self.vel.scale_to_length(MAX_SPEED)
+        # if self.vel.length() > MAX_SPEED:
+        #     self.vel.scale_to_length(MAX_SPEED)
 
         # x = v0t + 1/2at^2
-        self.pos += self.vel + 0.5 * self.acc
+        # self.pos += self.vel + 0.5 * self.acc
+
+        self.pos += self.acc * 10
 
         self.rect.center = self.pos
 

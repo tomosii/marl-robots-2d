@@ -34,7 +34,7 @@ class SingleAgentEnv(gym.Env):
 
     FONT_NAME = "Arial"
 
-    REWARD_SUCCESS = 10
+    REWARD_SUCCESS = 100
     REWARD_FAILURE = -1
     REWARD_TIME_PENALTY = -0.1
 
@@ -136,7 +136,9 @@ class SingleAgentEnv(gym.Env):
         if self.goal_reached:
             return self.REWARD_SUCCESS
         elif self.failed:
-            return self.REWARD_FAILURE
+            return self.REWARD_FAILURE - 1 * (
+                self.goal_distance / self.world.LIDAR_RANGE
+            )
         else:
             return -1 * (self.goal_distance / self.world.LIDAR_RANGE)
 
