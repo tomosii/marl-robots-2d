@@ -3,7 +3,8 @@ from typing import List, Tuple
 import pygame
 import gym
 from gym import spaces
-from world import SimpleWorld
+
+from envs.single.world import SimpleWorld
 
 
 class SingleAgentEnv(gym.Env):

@@ -1,8 +1,8 @@
-from ast import List
 import math
-from typing import Tuple
 import pygame
-from objects import (
+from typing import List, Tuple
+
+from envs.single.objects import (
     Corridor,
     CorridorOrientation,
     CorridorPosition,
@@ -10,7 +10,7 @@ from objects import (
     Room,
     Wall,
 )
-from players import NPC, Agent
+from envs.single.players import NPC, Agent
 
 
 class World:

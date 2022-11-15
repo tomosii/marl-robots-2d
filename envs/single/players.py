@@ -1,10 +1,10 @@
-import pygame
 import math
 import random
+import pygame
 from typing import List, Tuple
 
-from objects import CorridorOrientation, Goal, Wall
-from utils import line_intersect
+from envs.single.objects import CorridorOrientation, Goal, Wall
+from envs.single.utils import line_intersect
 
 
 class Agent(pygame.sprite.Sprite):
