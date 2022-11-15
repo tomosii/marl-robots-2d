@@ -13,76 +13,84 @@ class CorridorPosition(Enum):
 
 
 class Room(pygame.sprite.Sprite):
-    def __init__(self, center_x, center_y):
+    def __init__(self, center_x, center_y, size, color):
         super().__init__()
-        self.image = pygame.Surface([ROOM_SIZE, ROOM_SIZE], pygame.SRCALPHA)
+        self.image = pygame.Surface([size, size], pygame.SRCALPHA)
 
-        pygame.draw.rect(self.image, ROOM_COLOR, [0, 0, ROOM_SIZE, ROOM_SIZE])
+        pygame.draw.rect(self.image, color, [0, 0, size, size])
 
         self.rect = self.image.get_rect()
         self.rect.center = (center_x, center_y)
 
 
 class Goal(pygame.sprite.Sprite):
-    def __init__(self, center_x, center_y, color):
+    def __init__(self, center_x, center_y, size, color):
         super().__init__()
-        self.image = pygame.Surface([GOAL_SIZE, GOAL_SIZE], pygame.SRCALPHA)
+        self.image = pygame.Surface([size, size], pygame.SRCALPHA)
 
-        pygame.draw.rect(self.image, color, [0, 0, GOAL_SIZE, GOAL_SIZE], 0, 5)
+        pygame.draw.rect(self.image, color, [0, 0, size, size], 0, 5)
 
         self.rect = self.image.get_rect()
         self.rect.center = (center_x, center_y)
 
 
 class Wall(pygame.sprite.Sprite):
-    def __init__(self, start, length, orientation):
+    def __init__(self, start, length, orientation, wall_width, color):
         super().__init__()
 
         self.start = start
 
         if orientation == CorridorOrientation.HORIZONTAL:
             width = length
-            height = WALL_WIDTH
+            height = wall_width
             center_x = start[0] + length / 2
             center_y = start[1]
             self.end = (start[0] + length, start[1])
         else:
-            width = WALL_WIDTH
+            width = wall_width
             height = length
             center_x = start[0]
             center_y = start[1] + length / 2
             self.end = (start[0], start[1] + length)
         self.image = pygame.Surface([width, height], pygame.SRCALPHA)
-        pygame.draw.rect(self.image, WALL_COLOR, [0, 0, width, height])
+        pygame.draw.rect(self.image, color, [0, 0, width, height])
         self.rect = self.image.get_rect()
         self.rect.center = (center_x, center_y)
 
 
 class Corridor(pygame.sprite.Sprite):
-    def __init__(self, start, end, orientation, position):
+    def __init__(
+        self,
+        start_room,
+        end_room,
+        orientation,
+        position,
+        corridor_width,
+        room_size,
+        color,
+    ):
         super().__init__()
         if orientation == CorridorOrientation.HORIZONTAL:
-            width = end[0] - start[0] - ROOM_SIZE // 2 + CORRIDOR_WIDTH // 2
-            height = CORRIDOR_WIDTH
+            width = end_room[0] - start_room[0] - room_size // 2 + corridor_width // 2
+            height = corridor_width
             if position == CorridorPosition.TOPLEFT:
-                left = start[0] - CORRIDOR_WIDTH // 2
-                top = end[1] - CORRIDOR_WIDTH // 2
+                left = start_room[0] - corridor_width // 2
+                top = end_room[1] - corridor_width // 2
             else:
-                left = start[0] + ROOM_SIZE // 2
-                top = start[1] - CORRIDOR_WIDTH // 2
+                left = start_room[0] + room_size // 2
+                top = start_room[1] - corridor_width // 2
         else:
-            width = CORRIDOR_WIDTH
-            height = end[1] - start[1] - ROOM_SIZE // 2 + CORRIDOR_WIDTH // 2
+            width = corridor_width
+            height = end_room[1] - start_room[1] - room_size // 2 + corridor_width // 2
             if position == CorridorPosition.TOPLEFT:
-                left = end[0] - CORRIDOR_WIDTH // 2
-                top = start[1] - CORRIDOR_WIDTH // 2
+                left = end_room[0] - corridor_width // 2
+                top = start_room[1] - corridor_width // 2
             else:
-                left = start[0] - CORRIDOR_WIDTH // 2
-                top = start[1] + ROOM_SIZE // 2
+                left = start_room[0] - corridor_width // 2
+                top = start_room[1] + room_size // 2
+
         self.image = pygame.Surface([width, height], pygame.SRCALPHA)
 
-        self.rect = pygame.draw.rect(
-            self.image, CORRIDOR_COLOR, [0, 0, width, height], 0, 0
-        )
+        self.rect = pygame.draw.rect(self.image, color, [0, 0, width, height], 0, 0)
         self.rect.left = left
         self.rect.top = top

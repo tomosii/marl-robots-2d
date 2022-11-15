@@ -1,4 +1,7 @@
-def line_intersect(p0, p1, q0, q1):
+from typing import Tuple
+
+
+def line_intersect(p0, p1, q0, q1) -> Tuple[float, float]:
     """
     2つの直線PとQの交点を計算
     pからp+rに向かう直線とqからq+sに向かう直線が
