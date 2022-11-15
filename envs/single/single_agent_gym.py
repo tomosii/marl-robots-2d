@@ -1,8 +1,9 @@
 import random
-from typing import List, Tuple
+import numpy as np
 import pygame
 import gym
 from gym import spaces
+from typing import List, Tuple
 
 from envs.single.world import SimpleWorld
 
@@ -37,6 +38,8 @@ class SingleAgentEnv(gym.Env):
     REWARD_FAILURE = -10
     REWARD_TIME_PENALTY = -0.1
 
+    MAX_EPISODE_STEPS = 1000
+
     def __init__(self, render_mode="human"):
         super().__init__()
         self.render_mode = render_mode
@@ -51,13 +54,13 @@ class SingleAgentEnv(gym.Env):
             low=0, high=1, shape=(num_lasers + 1,), dtype=float
         )
 
-        self.window = pygame.display.set_mode([self.WINDOW_WIDTH, self.WINDOW_HEIGHT])
+        self.window = None
         self.map_screen = pygame.Surface((self.WIDTH, self.HEIGHT))
         self.info_screen = pygame.Surface((self.WINDOW_WIDTH, self.INFO_HEIGHT))
         self.clock = pygame.time.Clock()
 
-        self.episode = 0
-        self.timestep = 0
+        self._episode = 0
+        self._timestep = 0
 
         self.goal_reached = False
         self.failed = False
@@ -85,6 +88,7 @@ class SingleAgentEnv(gym.Env):
         """
 
         terminated = False
+        info = {}
 
         self.world.step(action)
 
@@ -94,6 +98,9 @@ class SingleAgentEnv(gym.Env):
         elif self.world.check_goal():
             self.goal_reached = True
             terminated = True
+        elif self._timestep >= self.MAX_EPISODE_STEPS:
+            info = {"TimeLimit.truncated": True}
+            terminated = True
 
         reward = self.__get_reward()
         observation = self.__get_observation()
@@ -101,8 +108,8 @@ class SingleAgentEnv(gym.Env):
         if self.render_mode == "human":
             self.render()
 
-        self.timestep += 1
-        return observation, reward, terminated, {}
+        self._timestep += 1
+        return observation, reward, terminated, info
 
     def reset(self) -> list:
         """
@@ -111,11 +118,9 @@ class SingleAgentEnv(gym.Env):
         戻り値:
             - observation: 観測値
         """
-        pygame.display.flip()
-        pygame.time.wait(400)
-        self.world.reset()
-        self.timestep = 0
-        self.episode += 1
+        self.world.reset(random_direction=False)
+        self._timestep = 0
+        self._episode += 1
         self.goal_reached = False
         self.failed = False
         self.goal_distance = 0
@@ -142,7 +147,7 @@ class SingleAgentEnv(gym.Env):
         self.goal_distance = self.world.get_distance_from_goal()
         self.laser_distances = self.world.laser_scan()
 
-        distances = [self.goal_distance] + self.laser_distances
+        distances = np.insert(self.laser_distances, 0, self.goal_distance)
         normalized_obs = self.world.normalize_distances(distances)
         return normalized_obs
 
@@ -152,6 +157,10 @@ class SingleAgentEnv(gym.Env):
         """
         if self.render_mode == "human":
             # self.clock.tick(self.FPS)
+            if self.window is None:
+                self.window = pygame.display.set_mode(
+                    (self.WINDOW_WIDTH, self.WINDOW_HEIGHT)
+                )
             self.__draw()
             pygame.display.flip()
         elif self.render_mode == "rgb_array":
@@ -173,10 +182,10 @@ class SingleAgentEnv(gym.Env):
 
     def __draw_info(self):
         episode_text = self.font2.render(
-            f"Episode: {self.episode}", True, self.INFO_TEXT_COLOR
+            f"Episode: {self._episode}", True, self.INFO_TEXT_COLOR
         )
         timestep_text = self.font3.render(
-            f"Timestep: {self.timestep}", True, self.INFO_TEXT_COLOR2
+            f"Timestep: {self._timestep}", True, self.INFO_TEXT_COLOR2
         )
         distance_text = self.font3.render(
             f"Distance from goal: {self.goal_distance:.0f}",

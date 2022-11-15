@@ -1,5 +1,6 @@
 import math
 import random
+import numpy as np
 import pygame
 from typing import List, Tuple
 
@@ -64,7 +65,7 @@ class Agent(pygame.sprite.Sprite):
         self.acc = pygame.math.Vector2(0, 0)
         self.rect.center = self.pos
 
-    def __create_lasers(self) -> List:
+    def __create_lasers(self) -> np.ndarray:
         lasers = []
         for angle in range(0, -(self.LIDAR_ANGLE - 1), -self.LIDAR_INTERVAL):
             laser = (
@@ -75,9 +76,9 @@ class Agent(pygame.sprite.Sprite):
                 ),
             )
             lasers.append(laser)
-        return lasers
+        return np.array(lasers)
 
-    def laser_scan(self, obstacle_lines: Tuple[float, float]) -> List:
+    def laser_scan(self, obstacle_lines: List) -> np.ndarray:
         """
         ライダーのレーザーを飛ばした際の障害物との交点を求める
         """
@@ -101,7 +102,7 @@ class Agent(pygame.sprite.Sprite):
                         min_intersection = intersection
 
             intersections.append(min_intersection)
-        return intersections
+        return np.array(intersections)
 
 
 class NPC(pygame.sprite.Sprite):
@@ -131,14 +132,17 @@ class NPC(pygame.sprite.Sprite):
 
         self.rect.center = self.pos
 
-    def reset(self, pos):
+    def reset(self, pos, random_direction=None):
         self.pos = pygame.math.Vector2(pos)
         self.vel = pygame.math.Vector2(0, 0)
         self.acc = pygame.math.Vector2(0, 0)
         self.rect.center = self.pos
 
-        rand = random.randint(0, 1)
-        if rand == 0:
-            self.path = CorridorOrientation.HORIZONTAL
+        if random_direction:
+            rand = random.randint(0, 1)
+            if rand == 0:
+                self.path = CorridorOrientation.HORIZONTAL
+            else:
+                self.path = CorridorOrientation.VERTICAL
         else:
-            self.path = CorridorOrientation.VERTICAL
+            self.path = CorridorOrientation.HORIZONTAL

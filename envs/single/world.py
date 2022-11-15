@@ -1,4 +1,5 @@
 import math
+import numpy as np
 import pygame
 from typing import List, Tuple
 
@@ -90,7 +91,7 @@ class SimpleWorld(World):
 
     LIDAR_ANGLE = 360
     LIDAR_INTERVAL = 45
-    LIDAR_RANGE = 1200
+    LIDAR_RANGE = max(WIDTH, HEIGHT)
 
     room1 = Room(ROOM_SIZE // 2, HEIGHT - ROOM_SIZE // 2, ROOM_SIZE, ROOM_COLOR)
     room2 = Room(WIDTH - ROOM_SIZE // 2, ROOM_SIZE // 2, ROOM_SIZE, ROOM_COLOR)
@@ -320,9 +321,9 @@ class SimpleWorld(World):
 
         self.scan_points = []
 
-    def reset(self):
+    def reset(self, random_direction=False):
         self.agent.reset(self.AGENT_POS)
-        self.npc.reset(self.NPC_POS)
+        self.npc.reset(self.NPC_POS, random_direction=random_direction)
 
     def step(self, action):
         self.agent.move(action)
@@ -355,7 +356,7 @@ class SimpleWorld(World):
     def get_num_lasers(self) -> int:
         return self.LIDAR_ANGLE // self.LIDAR_INTERVAL
 
-    def laser_scan(self) -> List:
+    def laser_scan(self) -> np.ndarray:
         self.laser_points = self.agent.laser_scan(self.get_obstacle_lines())
         laser_distances = [
             math.sqrt(
@@ -363,7 +364,7 @@ class SimpleWorld(World):
             )
             for point in self.laser_points
         ]
-        return laser_distances
+        return np.array(laser_distances)
 
-    def normalize_distances(self, distances: List) -> List:
-        return [distance / self.WIDTH for distance in distances]
+    def normalize_distances(self, distances: np.ndarray) -> np.ndarray:
+        return distances / self.LIDAR_RANGE
