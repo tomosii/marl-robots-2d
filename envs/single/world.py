@@ -1,4 +1,5 @@
 from ast import List
+import math
 from typing import Tuple
 import pygame
 from objects import (
@@ -44,6 +45,18 @@ class World:
     def draw(self, screen: pygame.Surface):
         raise NotImplementedError
 
+    def check_collision(self) -> bool:
+        raise NotImplementedError
+
+    def check_goal(self) -> bool:
+        raise NotImplementedError
+
+    def get_distance_from_goal(self):
+        return math.sqrt(
+            (self.agent.pos.x - self.goal.rect.center[0]) ** 2
+            + (self.agent.pos.y - self.goal.rect.center[1]) ** 2
+        )
+
 
 class SimpleWorld(World):
     WIDTH = 600
@@ -76,7 +89,7 @@ class SimpleWorld(World):
     NPC_VEL = 6
 
     LIDAR_ANGLE = 360
-    LIDAR_INTERVAL = 5
+    LIDAR_INTERVAL = 45
     LIDAR_RANGE = 1200
 
     room1 = Room(ROOM_SIZE // 2, HEIGHT - ROOM_SIZE // 2, ROOM_SIZE, ROOM_COLOR)
@@ -305,6 +318,8 @@ class SimpleWorld(World):
         self.npc = NPC(self.AGENT_GREEN, self.AGENT_SIZE, self.NPC_VEL)
         self.players = pygame.sprite.Group(self.agent, self.npc)
 
+        self.scan_points = []
+
     def reset(self):
         self.agent.reset(self.AGENT_POS)
         self.npc.reset(self.NPC_POS)
@@ -325,10 +340,7 @@ class SimpleWorld(World):
         self.players.draw(screen)
 
     def __draw_lasers(self, screen):
-        lasers = self.agent.create_lasers()
-        obstacle_lines = self.get_obstacle_lines()
-        for laser in lasers:
-            intersection = self.agent.laser_scan(laser, obstacle_lines)
+        for intersection in self.laser_points:
             pygame.draw.line(screen, self.LASER_COLOR, self.agent.pos, intersection)
             pygame.draw.circle(screen, self.LASER_POINT_COLOR, intersection, 2.5)
 
@@ -336,3 +348,22 @@ class SimpleWorld(World):
         return pygame.sprite.spritecollideany(
             self.agent, self.walls
         ) or pygame.sprite.collide_rect(self.agent, self.npc)
+
+    def check_goal(self):
+        return pygame.sprite.collide_rect(self.agent, self.goal)
+
+    def get_num_lasers(self) -> int:
+        return self.LIDAR_ANGLE // self.LIDAR_INTERVAL
+
+    def laser_scan(self) -> List:
+        self.laser_points = self.agent.laser_scan(self.get_obstacle_lines())
+        laser_distances = [
+            math.sqrt(
+                (point[0] - self.agent.pos.x) ** 2 + (point[1] - self.agent.pos.y) ** 2
+            )
+            for point in self.laser_points
+        ]
+        return laser_distances
+
+    def normalize_distances(self, distances: List) -> List:
+        return [distance / self.WIDTH for distance in distances]

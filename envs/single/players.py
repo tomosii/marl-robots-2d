@@ -38,8 +38,6 @@ class Agent(pygame.sprite.Sprite):
     def move(self, action):
         self.acc = pygame.math.Vector2(0, 0)
 
-        pressed_keys = pygame.key.get_pressed()
-
         if action == 0:
             self.acc.x = -self.ACC
         if action == 1:
@@ -66,20 +64,9 @@ class Agent(pygame.sprite.Sprite):
         self.acc = pygame.math.Vector2(0, 0)
         self.rect.center = self.pos
 
-    def collide_npc(self, npc):
-        if self.rect.colliderect(npc.rect):
-            self.vel = pygame.math.Vector2(0, 0)
-            return True
-        return False
-
-    def check_goal(self, goal: Goal):
-        if self.rect.colliderect(goal.rect):
-            return True
-        return False
-
-    def create_lasers(self) -> List:
+    def __create_lasers(self) -> List:
         lasers = []
-        for angle in range(0, -self.LIDAR_ANGLE, -self.LIDAR_INTERVAL):
+        for angle in range(0, -(self.LIDAR_ANGLE - 1), -self.LIDAR_INTERVAL):
             laser = (
                 (self.pos.x, self.pos.y),
                 (
@@ -90,30 +77,31 @@ class Agent(pygame.sprite.Sprite):
             lasers.append(laser)
         return lasers
 
-    def laser_scan(self, laser, obstacle_lines) -> Tuple[float, float]:
+    def laser_scan(self, obstacle_lines: Tuple[float, float]) -> List:
         """
-        レーザーが障害物に当たる位置を計算
+        ライダーのレーザーを飛ばした際の障害物との交点を求める
         """
+        intersections = []
+        lasers = self.__create_lasers()
 
-        min_intersection = laser[1]
-        min_distance = self.LIDAR_RANGE
-        for obstacle in obstacle_lines:
-            intersection = line_intersect(laser[0], laser[1], obstacle[0], obstacle[1])
-            if intersection is not None:
-                distance = math.sqrt(
-                    (intersection[0] - laser[0][0]) ** 2
-                    + (intersection[1] - laser[0][1]) ** 2
+        for laser in lasers:
+            min_intersection = laser[1]
+            min_distance = self.LIDAR_RANGE
+            for obstacle in obstacle_lines:
+                intersection = line_intersect(
+                    laser[0], laser[1], obstacle[0], obstacle[1]
                 )
-                if distance < min_distance:
-                    min_distance = distance
-                    min_intersection = intersection
-        return min_intersection
+                if intersection is not None:
+                    distance = math.sqrt(
+                        (intersection[0] - laser[0][0]) ** 2
+                        + (intersection[1] - laser[0][1]) ** 2
+                    )
+                    if distance < min_distance:
+                        min_distance = distance
+                        min_intersection = intersection
 
-    def distance_from_goal(self, goal):
-        return math.sqrt(
-            (self.pos.x - goal.rect.center[0]) ** 2
-            + (self.pos.y - goal.rect.center[1]) ** 2
-        )
+            intersections.append(min_intersection)
+        return intersections
 
 
 class NPC(pygame.sprite.Sprite):

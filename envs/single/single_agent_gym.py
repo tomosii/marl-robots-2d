@@ -32,6 +32,10 @@ class SingleAgentEnv(gym.Env):
 
     FONT_NAME = "Arial"
 
+    REWARD_SUCCESS = 10
+    REWARD_FAILURE = -10
+    REWARD_TIME_PENALTY = -0.1
+
     def __init__(self, render_mode="human"):
         super().__init__()
         self.render_mode = render_mode
@@ -39,6 +43,12 @@ class SingleAgentEnv(gym.Env):
         pygame.display.set_caption("Single Agent Environment")
 
         self.world = SimpleWorld()
+        num_lasers = self.world.get_num_lasers()
+
+        self.action_space = spaces.Discrete(4)
+        self.observation_space = spaces.Box(
+            low=0, high=1, shape=(num_lasers + 1,), dtype=float
+        )
 
         self.window = pygame.display.set_mode([self.WINDOW_WIDTH, self.WINDOW_HEIGHT])
         self.map_screen = pygame.Surface((self.WIDTH, self.HEIGHT))
@@ -47,6 +57,12 @@ class SingleAgentEnv(gym.Env):
 
         self.episode = 0
         self.timestep = 0
+
+        self.goal_reached = False
+        self.failed = False
+
+        self.goal_distance = 0
+        self.laser_distances = []
 
         self.font1 = pygame.font.SysFont(self.FONT_NAME, 45)
         self.font2 = pygame.font.SysFont(self.FONT_NAME, 30)
@@ -70,17 +86,25 @@ class SingleAgentEnv(gym.Env):
         terminated = False
 
         self.world.step(action)
-        if self.world.npc.pos == self.world.AGENT_POS:
+
+        if self.world.check_collision():
+            self.failed = True
             terminated = True
-        elif self.world.check_collision():
+        elif self.world.check_goal():
+            self.goal_reached = True
             terminated = True
 
-        self.timestep += 1
+        self.goal_distance = self.world.get_distance_from_goal()
+        self.laser_distances = self.world.laser_scan()
+
+        reward = self.__get_reward()
+        observation = self.__get_observation()
 
         if self.render_mode == "human":
             self.render()
 
-        return None, None, terminated, False, {}
+        self.timestep += 1
+        return observation, reward, terminated, False, {}
 
     def reset(self) -> list:
         """
@@ -90,10 +114,33 @@ class SingleAgentEnv(gym.Env):
             - observation: 観測値
         """
         pygame.display.flip()
-        pygame.time.wait(100)
+        pygame.time.wait(400)
         self.world.reset()
         self.timestep = 0
         self.episode += 1
+        self.goal_reached = False
+        self.failed = False
+        self.goal_distance = 0
+        self.laser_distances = []
+
+    def __get_reward(self) -> float:
+        """
+        報酬を計算する
+        """
+        if self.goal_reached:
+            return self.REWARD_SUCCESS
+        elif self.failed:
+            return self.REWARD_FAILURE
+        else:
+            return self.REWARD_TIME_PENALTY
+
+    def __get_observation(self) -> List[float]:
+        """
+        観測値を取得する
+        """
+        distances = [self.goal_distance] + self.laser_distances
+        normalized_obs = self.world.normalize_distances(distances)
+        return normalized_obs
 
     def render(self, mode="human"):
         """
@@ -121,12 +168,14 @@ class SingleAgentEnv(gym.Env):
         self.window.blit(self.info_screen, (0, 0))
 
     def __draw_info(self):
-        episode_text = self.font2.render(f"Episode: {0}", True, self.INFO_TEXT_COLOR)
+        episode_text = self.font2.render(
+            f"Episode: {self.episode}", True, self.INFO_TEXT_COLOR
+        )
         timestep_text = self.font3.render(
             f"Timestep: {self.timestep}", True, self.INFO_TEXT_COLOR2
         )
         distance_text = self.font3.render(
-            f"Distance from goal: {0:.0f}",
+            f"Distance from goal: {self.goal_distance:.0f}",
             True,
             self.INFO_TEXT_COLOR2,
         )
@@ -152,6 +201,17 @@ class SingleAgentEnv(gym.Env):
             distance_text, (self.INFO_MARGIN + 24, self.INFO_MARGIN + 95)
         )
 
+        if self.failed:
+            result_text = self.font1.render("FAILED", True, (160, 50, 50))
+            self.info_screen.blit(
+                result_text, (self.WINDOW_WIDTH - 300, self.INFO_MARGIN + 50)
+            )
+        elif self.goal_reached:
+            result_text = self.font1.render("CLEAR !!!!!!", True, (50, 160, 80))
+            self.info_screen.blit(
+                result_text, (self.WINDOW_WIDTH - 300, self.INFO_MARGIN + 50)
+            )
+
     def close(self):
         """
         環境を閉じる
@@ -161,27 +221,18 @@ class SingleAgentEnv(gym.Env):
 
 if __name__ == "__main__":
     episode_num = 10
-    max_timestep = 500
+    max_timestep = 100
 
     env = SingleAgentEnv()
     for episode in range(episode_num):
         env.reset()
         for timestep in range(max_timestep):
             action = random.randint(0, 3)
-            observation, reward, terminated, truncated, info = env.step(action)
+            observation, reward, terminated, truncated, info = env.step(1)
+
             if terminated:
+                print(observation, reward)
+
                 break
 
     env.close()
-
-    # if agent.check_goal(goal1):
-    #     result_text = result_font.render("CLEAR !!", True, INFO_TEXT_COLOR)
-    #     screen.blit(result_text, (400, 80))
-    #     reset()
-    #     episode += 1
-
-    # if agent.collide_npc(npc) or agent.collide_walls(walls.sprites()):
-    #     result_text = result_font.render("FAILED", True, INFO_TEXT_COLOR)
-    #     screen.blit(result_text, (400, 80))
-    #     reset()
-    #     episode += 1
