@@ -95,9 +95,6 @@ class SingleAgentEnv(gym.Env):
             self.goal_reached = True
             terminated = True
 
-        self.goal_distance = self.world.get_distance_from_goal()
-        self.laser_distances = self.world.laser_scan()
-
         reward = self.__get_reward()
         observation = self.__get_observation()
 
@@ -105,7 +102,7 @@ class SingleAgentEnv(gym.Env):
             self.render()
 
         self.timestep += 1
-        return observation, reward, terminated, False, {}
+        return observation, reward, terminated, {}
 
     def reset(self) -> list:
         """
@@ -124,6 +121,9 @@ class SingleAgentEnv(gym.Env):
         self.goal_distance = 0
         self.laser_distances = []
 
+        observation = self.__get_observation()
+        return observation
+
     def __get_reward(self) -> float:
         """
         報酬を計算する
@@ -139,6 +139,9 @@ class SingleAgentEnv(gym.Env):
         """
         観測値を取得する
         """
+        self.goal_distance = self.world.get_distance_from_goal()
+        self.laser_distances = self.world.laser_scan()
+
         distances = [self.goal_distance] + self.laser_distances
         normalized_obs = self.world.normalize_distances(distances)
         return normalized_obs
