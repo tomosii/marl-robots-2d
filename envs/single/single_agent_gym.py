@@ -38,9 +38,9 @@ class SingleAgentEnv(gym.Env):
     REWARD_FAILURE = -10
     REWARD_TIME_PENALTY = -0.1
 
-    MAX_EPISODE_STEPS = 1000
+    MAX_EPISODE_STEPS = 400
 
-    def __init__(self, render_mode="human"):
+    def __init__(self, render_mode=None):
         super().__init__()
         self.render_mode = render_mode
         pygame.init()
@@ -155,16 +155,15 @@ class SingleAgentEnv(gym.Env):
         """
         環境を描画する
         """
-        if self.render_mode == "human":
-            # self.clock.tick(self.FPS)
-            if self.window is None:
-                self.window = pygame.display.set_mode(
-                    (self.WINDOW_WIDTH, self.WINDOW_HEIGHT)
-                )
-            self.__draw()
-            pygame.display.flip()
-        elif self.render_mode == "rgb_array":
-            return pygame.surfarray.array3d(self.screen)
+        self.clock.tick(self.FPS)
+        if self.window is None:
+            self.window = pygame.display.set_mode(
+                (self.WINDOW_WIDTH, self.WINDOW_HEIGHT)
+            )
+        self.__draw()
+        pygame.display.flip()
+        # elif self.render_mode == "rgb_array":
+        #     return pygame.surfarray.array3d(self.screen)
 
     def __draw(self):
         """
