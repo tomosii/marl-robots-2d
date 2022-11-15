@@ -57,7 +57,7 @@ class Agent(pygame.sprite.Sprite):
         # x = v0t + 1/2at^2
         # self.pos += self.vel + 0.5 * self.acc
 
-        self.pos += self.acc * 10
+        self.pos += self.acc * 3
 
         self.rect.center = self.pos
 

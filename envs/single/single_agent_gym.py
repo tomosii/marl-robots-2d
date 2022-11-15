@@ -35,7 +35,7 @@ class SingleAgentEnv(gym.Env):
     FONT_NAME = "Arial"
 
     REWARD_SUCCESS = 100
-    REWARD_FAILURE = -5
+    REWARD_FAILURE = -100
     REWARD_TIME_PENALTY = -0.1
 
     MAX_EPISODE_STEPS = 300
@@ -134,6 +134,7 @@ class SingleAgentEnv(gym.Env):
         報酬を計算する
         """
         if self.goal_reached:
+            print("Goal reached!")
             return self.REWARD_SUCCESS
         elif self.failed:
             return self.REWARD_FAILURE - 1 * (
