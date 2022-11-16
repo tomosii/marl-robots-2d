@@ -96,6 +96,7 @@ class SingleAgentEnv(gym.Env):
             self.failed = True
             terminated = True
         elif self.world.check_goal():
+            info = {"is_success": True}
             self.goal_reached = True
             terminated = True
         elif self._timestep >= self.MAX_EPISODE_STEPS:
@@ -164,6 +165,7 @@ class SingleAgentEnv(gym.Env):
                 (self.WINDOW_WIDTH, self.WINDOW_HEIGHT)
             )
         self.__draw()
+        pygame.event.pump()
         pygame.display.flip()
         # elif self.render_mode == "rgb_array":
         #     return pygame.surfarray.array3d(self.screen)
