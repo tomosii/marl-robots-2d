@@ -35,7 +35,7 @@ class SingleAgentEnv(gym.Env):
     FONT_NAME = "Arial"
 
     REWARD_SUCCESS = 100
-    REWARD_FAILURE = -10
+    REWARD_FAILURE = -100
     REWARD_TIME_PENALTY = -0.1
 
     MAX_EPISODE_STEPS = 300
@@ -65,6 +65,8 @@ class SingleAgentEnv(gym.Env):
         self.goal_reached = False
         self.failed = False
 
+        self.success_count = 0
+
         self.goal_distance = 0
         self.laser_distances = []
 
@@ -93,14 +95,17 @@ class SingleAgentEnv(gym.Env):
         self.world.step(action)
 
         if self.world.check_collision():
+            info["is_success"] = False
             self.failed = True
             terminated = True
         elif self.world.check_goal():
-            info = {"is_success": True}
+            info["is_success"] = True
             self.goal_reached = True
             terminated = True
+            self.success_count += 1
         elif self._timestep >= self.MAX_EPISODE_STEPS:
-            info = {"TimeLimit.truncated": True}
+            info["is_success"] = False
+            info["TimeLimit.truncated"] = True
             terminated = True
 
         self.goal_distance = self.world.get_normalized_distance_from_goal()
