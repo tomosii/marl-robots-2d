@@ -41,10 +41,10 @@ LASER_POINT_COLOR = (200, 60, 60)
 
 FPS = 60
 
-ACC = 1.2
+ACC = 3
 FRIC = -0.12
 MAX_SPEED = 6
-NPC_VEL = 6
+NPC_VEL = 3
 
 LIDAR_ANGLE = 360
 LIDAR_INTERVAL = 5
@@ -177,7 +177,7 @@ class Agent(pygame.sprite.Sprite):
         # x = v0t + 1/2at^2
         # self.pos += self.vel + 0.5 * self.acc
 
-        self.pos += self.acc * 3
+        self.pos += self.acc
 
         self.rect.center = self.pos
 

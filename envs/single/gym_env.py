@@ -35,7 +35,7 @@ class SingleAgentEnv(gym.Env):
     FONT_NAME = "Arial"
 
     REWARD_SUCCESS = 100
-    REWARD_FAILURE = -100
+    REWARD_FAILURE = -10
     REWARD_TIME_PENALTY = -0.1
 
     MAX_EPISODE_STEPS = 300
@@ -51,7 +51,7 @@ class SingleAgentEnv(gym.Env):
 
         self.action_space = spaces.Discrete(4)
         self.observation_space = spaces.Box(
-            low=0, high=1, shape=(num_lasers + 1,), dtype=float
+            low=-1, high=1, shape=(num_lasers + 2,), dtype=float
         )
 
         self.window = None
@@ -103,6 +103,8 @@ class SingleAgentEnv(gym.Env):
             info = {"TimeLimit.truncated": True}
             terminated = True
 
+        self.goal_distance = self.world.get_normalized_distance_from_goal()
+
         reward = self.__get_reward()
         observation = self.__get_observation()
 
@@ -138,22 +140,21 @@ class SingleAgentEnv(gym.Env):
             print("Goal reached!")
             return self.REWARD_SUCCESS
         elif self.failed:
-            return self.REWARD_FAILURE - 1 * (
-                self.goal_distance / self.world.LIDAR_RANGE
-            )
+            return self.REWARD_FAILURE - 1 * self.goal_distance
         else:
-            return -1 * (self.goal_distance / self.world.LIDAR_RANGE)
+            return -1 * self.goal_distance
 
     def __get_observation(self) -> List[float]:
         """
         観測値を取得する
         """
-        self.goal_distance = self.world.get_distance_from_goal()
-        self.laser_distances = self.world.laser_scan()
+        relative_goal_position = self.world.get_relative_normalized_goal_position()
 
-        distances = np.insert(self.laser_distances, 0, self.goal_distance)
-        normalized_obs = self.world.normalize_distances(distances)
-        return normalized_obs
+        laser_distances = self.world.laser_scan()
+        normalized_laser_distances = self.world.normalize_distances(laser_distances)
+
+        obs = np.hstack((relative_goal_position, normalized_laser_distances))
+        return obs
 
     def render(self, mode="human"):
         """
@@ -192,7 +193,7 @@ class SingleAgentEnv(gym.Env):
             f"Timestep: {self._timestep}", True, self.INFO_TEXT_COLOR2
         )
         distance_text = self.font3.render(
-            f"Distance from goal: {self.goal_distance:.0f}",
+            f"Distance from goal: {self.goal_distance:.3f}",
             True,
             self.INFO_TEXT_COLOR2,
         )

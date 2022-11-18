@@ -84,19 +84,19 @@ class SimpleWorld(World):
     AGENT_POS = (ROOM_SIZE // 2, HEIGHT - ROOM_SIZE // 2)
     NPC_POS = (WIDTH - ROOM_SIZE // 2, ROOM_SIZE // 2)
 
-    ACC = 1.7
+    ACC = 3
     FRIC = -0.12
     MAX_SPEED = 6
-    NPC_VEL = 6
+    NPC_VEL = 3
 
     LIDAR_ANGLE = 360
-    LIDAR_INTERVAL = 45
-    LIDAR_RANGE = max(WIDTH, HEIGHT)
+    LIDAR_INTERVAL = 30
+    LIDAR_RANGE = math.sqrt(WIDTH**2 + HEIGHT**2)
 
     room1 = Room(ROOM_SIZE // 2, HEIGHT - ROOM_SIZE // 2, ROOM_SIZE, ROOM_COLOR)
     room2 = Room(WIDTH - ROOM_SIZE // 2, ROOM_SIZE // 2, ROOM_SIZE, ROOM_COLOR)
     # goal = Goal(room2.rect.centerx, room2.rect.centery, GOAL_SIZE, GOAL_BLUE)
-    goal = Goal(room2.rect.centerx, room2.rect.centery + 100, GOAL_SIZE, GOAL_BLUE)
+    goal = Goal(room2.rect.centerx, room2.rect.centery, GOAL_SIZE, GOAL_BLUE)
     maps = pygame.sprite.Group(
         room1,
         room2,
@@ -369,3 +369,14 @@ class SimpleWorld(World):
 
     def normalize_distances(self, distances: np.ndarray) -> np.ndarray:
         return distances / self.LIDAR_RANGE
+
+    def get_relative_normalized_goal_position(self) -> np.ndarray:
+        return np.array(
+            [
+                (self.goal.rect.centerx - self.agent.pos.x) / self.WIDTH,
+                (self.goal.rect.centery - self.agent.pos.y) / self.HEIGHT,
+            ]
+        )
+
+    def get_normalized_distance_from_goal(self) -> float:
+        return self.get_distance_from_goal() / self.LIDAR_RANGE
