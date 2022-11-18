@@ -64,6 +64,7 @@ class SingleAgentEnv(gym.Env):
 
         self.goal_reached = False
         self.failed = False
+        self.timeout = False
 
         self.success_count = 0
 
@@ -106,6 +107,7 @@ class SingleAgentEnv(gym.Env):
         elif self._timestep >= self.MAX_EPISODE_STEPS:
             info["is_success"] = False
             info["TimeLimit.truncated"] = True
+            self.timeout = True
             terminated = True
 
         self.goal_distance = self.world.get_normalized_distance_from_goal()
@@ -146,6 +148,8 @@ class SingleAgentEnv(gym.Env):
             return self.REWARD_SUCCESS
         elif self.failed:
             return self.REWARD_FAILURE - 1 * self.goal_distance
+        elif self.timeout:
+            return -50 - 1 * self.goal_distance
         else:
             return -1 * self.goal_distance
 
