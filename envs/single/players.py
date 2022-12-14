@@ -23,7 +23,8 @@ class Agent(pygame.sprite.Sprite):
         super().__init__()
         self.image = pygame.Surface([size, size], pygame.SRCALPHA)
         self.rect = self.image.get_rect()
-        pygame.draw.circle(self.image, color, (size // 2, size // 2), size // 2)
+        # pygame.draw.circle(self.image, color, (size // 2, size // 2), size // 2)
+        pygame.draw.rect(self.image, color, [0, 0, size, size], 0, 3)
 
         self.ACC = acceleration
         self.FRIC = friction

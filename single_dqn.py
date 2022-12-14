@@ -18,7 +18,7 @@ if TRAIN:
         eval_env, eval_freq=10000, n_eval_episodes=1, render=True
     )
     model = DQN("MlpPolicy", env, verbose=1, device="auto", exploration_fraction=0.9)
-    model.learn(total_timesteps=1000000, log_interval=50, callback=eval_callback)
+    model.learn(total_timesteps=2500000, log_interval=50, callback=eval_callback)
     model.save("single_dqn")
     input(
         "Training finished. Press enter key to execute the trained agent. \n[PRESS ENTER]"

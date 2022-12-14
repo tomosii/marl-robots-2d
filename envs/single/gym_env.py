@@ -36,7 +36,7 @@ class SingleAgentEnv(gym.Env):
 
     REWARD_SUCCESS = 100
     REWARD_FAILURE = -100
-    REWARD_TIME_PENALTY = -0.1
+    REWARD_TIME_PENALTY = -0.01
 
     MAX_EPISODE_STEPS = 300
 
@@ -108,6 +108,7 @@ class SingleAgentEnv(gym.Env):
             info["TimeLimit.truncated"] = True
             terminated = True
 
+        # ゴールまでの正規化された距離
         self.goal_distance = self.world.get_normalized_distance_from_goal()
 
         reward = self.__get_reward()
@@ -146,18 +147,23 @@ class SingleAgentEnv(gym.Env):
             return self.REWARD_SUCCESS
         elif self.failed:
             return self.REWARD_FAILURE - 1 * self.goal_distance
+            # return self.REWARD_FAILURE
         else:
             return -1 * self.goal_distance
+            # return self.REWARD_TIME_PENALTY
 
     def __get_observation(self) -> List[float]:
         """
         観測値を取得する
         """
+        # エージェントからみたゴールの正規化された相対的な座標 [x, y]
         relative_goal_position = self.world.get_relative_normalized_goal_position()
 
+        # 正規化された距離のLiDARセンサー値 [d1, ..., dn]
         laser_distances = self.world.laser_scan()
         normalized_laser_distances = self.world.normalize_distances(laser_distances)
 
+        # 2つを結合して観測とする [x, y, d1, ..., dn]
         obs = np.hstack((relative_goal_position, normalized_laser_distances))
         return obs
 

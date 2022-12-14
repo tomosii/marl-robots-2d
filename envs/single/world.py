@@ -53,6 +53,9 @@ class World:
         raise NotImplementedError
 
     def get_distance_from_goal(self):
+        """
+        エージェントとゴール間の距離
+        """
         return math.sqrt(
             (self.agent.pos.x - self.goal.rect.center[0]) ** 2
             + (self.agent.pos.y - self.goal.rect.center[1]) ** 2
@@ -60,11 +63,11 @@ class World:
 
 
 class SimpleWorld(World):
-    WIDTH = 600
-    HEIGHT = 600
+    WIDTH = 300
+    HEIGHT = 300
 
     AGENT_SIZE = 60
-    ROOM_SIZE = 260
+    ROOM_SIZE = AGENT_SIZE + 60
     GOAL_SIZE = 50
     CORRIDOR_WIDTH = AGENT_SIZE + 40
     WALL_WIDTH = 2
@@ -90,7 +93,7 @@ class SimpleWorld(World):
     NPC_VEL = 3
 
     LIDAR_ANGLE = 360
-    LIDAR_INTERVAL = 30
+    LIDAR_INTERVAL = 90
     LIDAR_RANGE = math.sqrt(WIDTH**2 + HEIGHT**2)
 
     room1 = Room(ROOM_SIZE // 2, HEIGHT - ROOM_SIZE // 2, ROOM_SIZE, ROOM_COLOR)
@@ -379,4 +382,7 @@ class SimpleWorld(World):
         )
 
     def get_normalized_distance_from_goal(self) -> float:
+        """
+        エージェントとゴール間の正規化された距離
+        """
         return self.get_distance_from_goal() / self.LIDAR_RANGE
