@@ -5,10 +5,10 @@ import gym
 from gym import spaces
 from typing import List, Tuple
 
-from envs.single.world import SimpleWorld
+from envs.multi.world import SimpleWorld
 
 
-class SingleAgentEnv(gym.Env):
+class MultiAgentEnv(gym.Env):
     """
     シングルエージェントのGym環境
     レーザーで周りを観測して障害物を避けながら、ゴールに向かう
@@ -38,7 +38,7 @@ class SingleAgentEnv(gym.Env):
     REWARD_FAILURE = -100
     REWARD_TIME_PENALTY = -0.01
 
-    MAX_EPISODE_STEPS = 400
+    MAX_EPISODE_STEPS = 300
 
     def __init__(self, render_mode=None):
         super().__init__()

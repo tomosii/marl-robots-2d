@@ -3,7 +3,7 @@ import numpy as np
 import pygame
 from typing import List, Tuple
 
-from envs.single.objects import (
+from envs.multi.objects import (
     Corridor,
     CorridorOrientation,
     CorridorPosition,
@@ -11,7 +11,7 @@ from envs.single.objects import (
     Room,
     Wall,
 )
-from envs.single.players import NPC, Agent
+from envs.multi.players import NPC, Agent
 
 
 class World:
@@ -66,11 +66,11 @@ class SimpleWorld(World):
     WIDTH = 300
     HEIGHT = 300
 
-    AGENT_SIZE = 10
+    AGENT_SIZE = 15
     NPC_SIZE = 60
-    ROOM_SIZE = 80
+    ROOM_SIZE = 100
     GOAL_SIZE = 50
-    CORRIDOR_WIDTH = 70
+    CORRIDOR_WIDTH = 80
     WALL_WIDTH = 2
     WALL_OUTER_LENGTH = HEIGHT - ROOM_SIZE - (ROOM_SIZE - CORRIDOR_WIDTH) // 2
     WALL_INNER_LENGTH = WALL_OUTER_LENGTH - CORRIDOR_WIDTH
