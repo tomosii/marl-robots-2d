@@ -5,7 +5,7 @@ env_args:
   debug: True
   agent_velocity: 3
   guard_velocity: 3
-  channel_size: 2
+  channel_size: 1
   lidar_angle: 360
   lidar_interval: 90
   reward_success: 100

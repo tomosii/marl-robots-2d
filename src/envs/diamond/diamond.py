@@ -212,7 +212,8 @@ class DiamondEnv:
 
         # タイムステップを進める
         self._episode_steps += 1
-        self._total_steps += 1
+        if not self.test_mode:
+            self._total_steps += 1
 
         # 終了判定
         if self.world.check_collision():
@@ -258,8 +259,9 @@ class DiamondEnv:
         self.failed = False
         self.goal_distance = 0
         self.laser_distances = []
+        self.test_mode = test_mode
 
-        if test_mode:
+        if self.test_mode:
             self.enable_render = True
         else:
             self.enable_render = False
