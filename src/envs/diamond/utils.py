@@ -24,7 +24,7 @@ def line_intersect(p0, p1, q0, q1) -> Tuple[float, float]:
 def one_hot_encode(value, length):
     one_hot = np.zeros(length)
 
-    if value is None:
+    if value is None or value == 0:
         return one_hot
 
     one_hot[value - 1] = 1

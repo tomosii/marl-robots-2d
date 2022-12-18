@@ -41,7 +41,7 @@ class MuseumWorld(World):
     WALL_WIDTH = 170
     WALL_HEIGHT = 80
     WALL_GAP = 40
-    NUM_WALLS = 3
+    NUM_WALLS = 2
 
     WALL_COLOR = (45, 50, 56)
     FLOOR_COLOR = (80, 85, 90)

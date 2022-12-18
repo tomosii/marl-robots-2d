@@ -1,7 +1,7 @@
 env: diamond
 
 env_args:
-  episode_limit: 300
+  episode_limit: 200
   debug: True
   agent_velocity: 3
   guard_velocity: 3
@@ -11,7 +11,7 @@ env_args:
   reward_success: 100
   reward_failure: -100
 
-t_max: 2000000
+t_max: 1000000
 test_nepisode: 20
 test_interval: 5000
 log_interval: 5000

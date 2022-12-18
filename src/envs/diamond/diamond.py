@@ -60,7 +60,6 @@ class DiamondEnv:
     def __init__(
         self,
         episode_limit: int,
-        debug: bool,
         agent_velocity: float,
         guard_velocity: float,
         channel_size: int,
@@ -68,7 +67,8 @@ class DiamondEnv:
         lidar_interval: float,
         reward_success: float,
         reward_failure: float,
-        seed,
+        seed=None,
+        debug: bool = False,
         enable_render: bool = False,
     ):
         # os.environ['SDL_VIDEODRIVER'] = 'dummy'
@@ -182,7 +182,7 @@ class DiamondEnv:
             - info: その他の情報
         """
 
-        assert len(actions) == self.n_agents
+        assert len(actions) == self.n_agents, "Invalid action size"
 
         self.terminated = False
         info = {
@@ -200,6 +200,7 @@ class DiamondEnv:
                 continue
 
             if agent.movable:
+                assert action <= 4, "Invalid action for Robot Agent"
                 # 動く
                 if action == 1:
                     agent.move(Direction.LEFT)
@@ -211,6 +212,7 @@ class DiamondEnv:
                     agent.move(Direction.DOWN)
 
             if agent.sendable:
+                assert action >= 5, "Invalid action for Sensor Agent"
                 # メッセージを送る
                 if action >= 5:
                     self.world.send_message(action - 4)
@@ -337,18 +339,30 @@ class DiamondEnv:
                 )
 
             if agent.sendable:
-                # SA
+                # RA
                 obs.append(
                     np.concatenate(
                         (
-                            agent_absolute_position,
-                            guard_absolute_position,
+                            np.zeros(2),
+                            np.zeros(2),
                             relative_goal_position,
-                            np.zeros(self.n_lasers),
-                            np.zeros(self.channel_size),
+                            laser_distances,
+                            one_hot_message,
                         )
                     )
                 )
+                # SA
+                # obs.append(
+                #     np.concatenate(
+                #         (
+                #             agent_absolute_position,
+                #             guard_absolute_position,
+                #             relative_goal_position,
+                #             np.zeros(self.n_lasers),
+                #             np.zeros(self.channel_size),
+                #         )
+                #     )
+                # )
         self.obs = obs
         return np.array(obs)
 
@@ -396,7 +410,8 @@ class DiamondEnv:
 
             if agent.sendable:
                 # SA: メッセージを送信する行動を選択可能に
-                avail_mask = [1] + [0] * 4 + [1] * self.channel_size
+                # avail_mask = [1] + [0] * 4 + [1] * self.channel_size
+                avail_mask = [1] + [0] * 4 + [0] * self.channel_size
 
             avail_actions.append(avail_mask)
 
