@@ -25,6 +25,7 @@ class EpisodeRunner:
         assert self.batch_size == 1
 
         # 環境
+        # self.env = FoodAllocationEnv(**self.args.env_args)
         self.env = DiamondEnv(**self.args.env_args)
 
         self.episode = 0

@@ -1,9 +1,12 @@
 import random
+import time
 import numpy as np
 import pygame
 from typing import List, Tuple
+from envs.diamond.utils import one_hot_encode
 
 from envs.diamond.world import MuseumWorld
+from envs.diamond.agents import Direction
 
 
 class DiamondEnv:
@@ -64,7 +67,8 @@ class DiamondEnv:
         lidar_interval: float,
         reward_success: float,
         reward_failure: float,
-        render: bool = False,
+        seed,
+        enable_render: bool = False,
     ):
         pygame.init()
         pygame.display.set_caption("Diamond Env")
@@ -79,16 +83,18 @@ class DiamondEnv:
         self.channel_size = channel_size
         self.lidar_angle = lidar_angle
         self.lidar_interval = lidar_interval
+        self.enable_render = enable_render
 
-        self.world = MuseumWorld()
+        self.world = MuseumWorld(
+            self.agent_velocity,
+            self.guard_velocity,
+            self.channel_size,
+            self.lidar_angle,
+            self.lidar_interval,
+        )
         self.n_agents = len(self.world.agents())
 
-        num_lasers = self.world.get_num_lasers()
-
-        # self.action_space = spaces.Discrete(4)
-        # self.observation_space = spaces.Box(
-        #     low=-1, high=1, shape=(num_lasers + 2,), dtype=float
-        # )
+        self.n_lasers = self.world.get_num_lasers()
 
         self.window = None
         self.WINDOW_WIDTH = self.world.WIDTH + self.SA_INFO_WIDTH + 2 * self.OFFSET
@@ -98,13 +104,15 @@ class DiamondEnv:
         self.sa_screen = pygame.Surface((self.SA_INFO_WIDTH, self.world.HEIGHT))
         self.clock = pygame.time.Clock()
 
-        self._episode = 0
-        self._timestep = 0
+        self._episode_count = 0
+        self._episode_steps = 0
+        self._total_steps = 0
 
         self.goal_reached = False
         self.failed = False
 
         self.success_count = 0
+        self.timeout_count = 0
 
         self.goal_distance = 0
         self.laser_distances = []
@@ -132,113 +140,257 @@ class DiamondEnv:
         """
         エージェントの部分観測のサイズを返す
         """
-        # RAエージェントの観測サイズ
-        # レーザー + ゴール相対座標 + メッセージ
-        ra_obs_size = self.world.get_num_lasers() + 2 + self.channel_size
-
-        # SAエージェントの観測サイズ
-        # RA座標 + 警備員座標 + ゴール相対座標
-        sa_obs_size = 2 + 2 + 2
-
-        # 大きい方のサイズに合わせる
-        return max(ra_obs_size, sa_obs_size)
+        # サイズは全エージェントで統一する
+        # RA座標 + 警備員座標 +　レーザー +  ゴール相対座標 + メッセージ
+        # エージェントによって無効な部分は0で埋める
+        self.obs_size = 2 + 2 + self.n_lasers + 2 + self.channel_size
+        return self.obs_size
 
     def get_state_size(self):
         """
         グローバル状態のサイズを返す
         """
-        # レーザー + RA座標 + 警備員座標 + ゴール相対座標 + メッセージ
-        return self.world.get_num_lasers() + 2 + 2 + 2 + self.channel_size
+        # RA座標 + 警備員座標 +　レーザー +  ゴール相対座標 + メッセージ
+        return self.get_obs_size()
 
     def get_total_actions(self):
         """
         エージェントがとることのできる行動の数を返す
         """
+        # サイズは全エージェントで統一する
+        # エージェントによって無効な部分がある
+
+        # 前、後、左、右に動く
+        n_move_actions = 4
+
+        # いずれかのメッセージ送信
+        n_send_actions = self.channel_size
+
+        # 「何もしない」も含める
+        self.n_actions = n_move_actions + n_send_actions + 1
         return self.n_actions
 
-    def step(self, actions) -> Tuple[list, float, bool, bool, dict]:
+    def step(self, actions: List[int]) -> Tuple[float, bool, dict]:
         """
         行動を実行して、環境を1ステップ進める
 
         戻り値:
-            - observation: 観測値
             - reward: 報酬
             - terminated: エピソード完了フラグ
-            - truncated: エピソード中断フラグ
             - info: その他の情報
         """
 
-        terminated = False
+        assert len(actions) == self.n_agents
+
+        self.terminated = False
         info = {}
 
-        # assert len(actions) == self.n_agents
-        self._timestep += 1
+        # 警備員の移動
+        self.world.step()
 
-        self.world.step(actions)
+        # エージェントの行動を実行
+        for agent, action in zip(self.world.agents(), actions):
+            if action == 0:
+                # 何もしない
+                continue
 
+            if agent.movable:
+                # 動く
+                if action == 1:
+                    agent.move(Direction.LEFT)
+                elif action == 2:
+                    agent.move(Direction.RIGHT)
+                elif action == 3:
+                    agent.move(Direction.UP)
+                elif action == 4:
+                    agent.move(Direction.DOWN)
+
+            if agent.sendable:
+                # メッセージを送る
+                if action >= 5:
+                    self.world.send_message(action - 4)
+
+        # タイムステップを進める
+        self._episode_steps += 1
+        self._total_steps += 1
+
+        # 終了判定
         if self.world.check_collision():
+            # 衝突したら終了
+            self.terminated = True
             info["is_success"] = False
             self.failed = True
-            terminated = True
         elif self.world.check_goal():
+            # ゴールしたら終了
+            self.terminated = True
             info["is_success"] = True
             self.goal_reached = True
-            terminated = True
             self.success_count += 1
-        elif self._timestep >= self.MAX_EPISODE_STEPS:
+        elif self._episode_steps >= self.episode_limit:
+            # ステップ数が上限に達したら終了
+            self.terminated = True
             info["is_success"] = False
-            info["TimeLimit.truncated"] = True
-            terminated = True
+            info["timeout"] = True
+            self.timeout_count += 1
 
-        # ゴールまでの正規化された距離
-        self.goal_distance = self.world.get_normalized_distance_from_goal()
+        # 報酬を獲得
+        self.reward = self.get_reward()
 
-        self.reward = self.__get_reward()
-        self.observations = self.__get_observations()
-
-        if self.render_mode == "human":
+        # 描画
+        if self.enable_render:
             self.render()
 
-        return self.observations, self.reward, terminated, info
+        return self.reward, self.terminated, info
 
-    def reset(self) -> list:
+    def reset(self, episode, test_mode=False, print_log=False):
         """
         環境をリセットする
 
         戻り値:
-            - observation: 観測値
+            - observations: 観測値
+            - states: グローバル状態
         """
         self.world.reset(random_direction=True)
-        self._timestep = 0
-        self._episode += 1
+
+        self._episode_steps = 0
+        self._episode_count += 1
         self.goal_reached = False
         self.failed = False
         self.goal_distance = 0
         self.laser_distances = []
 
-        observation = self.__get_observations()
-        return observation
+        if test_mode:
+            self.enable_render = True
+        else:
+            self.enable_render = False
 
-    def __get_reward(self) -> float:
+        return self.get_obs(), self.get_state()
+
+    def get_reward(self) -> float:
         """
-        報酬を計算する
+        報酬関数
         """
+        # ゴールまでの正規化された距離
+        self.goal_distance = self.world.get_normalized_distance_from_goal()
+
         if self.goal_reached:
+            # ゴールに到達
             print("Goal reached!")
             return self.REWARD_SUCCESS
         elif self.failed:
+            # 衝突
             return self.REWARD_FAILURE - 1 * self.goal_distance
-            # return self.REWARD_FAILURE
         else:
+            # 毎ステップ、ゴールまでの距離をペナルティとして与える
             return -1 * self.goal_distance
-            # return self.REWARD_TIME_PENALTY
 
-    def __get_observations(self) -> List[float]:
+    def get_obs(self) -> List[float]:
         """
-        観測値を取得する
+        全てのエージェントの観測値を取得する
+        NOTE: 分散実行時はエージェントは自分自身の観測のみ用いるようにする
         """
-        obs = self.world.get_observations()
-        return obs
+
+        # RA座標 + 警備員座標 +　レーザー +  ゴール相対座標 + メッセージ
+
+        obs = []
+
+        # RAの絶対座標
+        agent_absolute_position = self.world.get_normalized_agent_position()
+
+        # 警備員の絶対座標
+        guard_absolute_position = self.world.get_normalized_guard_position()
+
+        # RAからみたゴールの相対的な座標
+        relative_goal_position = self.world.get_relative_normalized_goal_position()
+
+        # LiDARセンサー値 [d1, ..., dn]
+        laser_distances = self.world.laser_scan()
+
+        # 通信チャンネル
+        one_hot_message = one_hot_encode(self.world.get_message(), self.channel_size)
+
+        for agent in self.world.agents():
+            # 観測できない所は0で埋める
+            if agent.movable:
+                # RA
+                obs.append(
+                    np.concatenate(
+                        (
+                            np.zeros(2),
+                            np.zeros(2),
+                            relative_goal_position,
+                            laser_distances,
+                            one_hot_message,
+                        )
+                    )
+                )
+
+            if agent.sendable:
+                # SA
+                obs.append(
+                    np.concatenate(
+                        (
+                            agent_absolute_position,
+                            guard_absolute_position,
+                            relative_goal_position,
+                            np.zeros(self.n_lasers),
+                            np.zeros(self.channel_size),
+                        )
+                    )
+                )
+        self.obs = obs
+        return np.array(obs)
+
+    def get_state(self):
+        """
+        グローバル状態を取得する
+        NOTE: この関数は分散実行時は用いないこと
+        """
+        # RA座標 + 警備員座標 +　レーザー +  ゴール相対座標 + メッセージ
+
+        # RAの絶対座標
+        agent_absolute_position = self.world.get_normalized_agent_position()
+        # 警備員の絶対座標
+        guard_absolute_position = self.world.get_normalized_guard_position()
+        # RAからみたゴールの相対的な座標
+        relative_goal_position = self.world.get_relative_normalized_goal_position()
+        # LiDARセンサー値 [d1, ..., dn]
+        laser_distances = self.world.laser_scan()
+        # 通信チャンネル
+        one_hot_message = one_hot_encode(self.world.get_message(), self.channel_size)
+
+        return np.concatenate(
+            (
+                agent_absolute_position,
+                guard_absolute_position,
+                relative_goal_position,
+                laser_distances,
+                one_hot_message,
+            )
+        ).astype(np.float32)
+
+    def get_avail_actions(self):
+        """
+        全エージェントの選択可能な行動のマスクを返す
+        """
+        avail_actions = []
+        # エージェントごと
+        for agent in self.world.agents():
+            # マスクを作成
+            avail_mask = [0] * self.n_actions
+            # 「何もしない」は常に選択可能
+            if agent.movable:
+                # RA: 移動する行動を選択可能に
+                avail_mask = [1] + [1] * 4 + [0] * self.channel_size
+
+            if agent.sendable:
+                # SA: メッセージを送信する行動を選択可能に
+                avail_mask = [1] + [0] * 4 + [1] * self.channel_size
+
+            avail_actions.append(avail_mask)
+
+        # print(avail_actions)
+        return np.array(avail_actions)
 
     def render(self, mode="human"):
         """
@@ -252,6 +404,9 @@ class DiamondEnv:
         self.__draw()
         pygame.event.pump()
         pygame.display.flip()
+
+        if self.terminated:
+            time.sleep(0.5)
         # elif self.render_mode == "rgb_array":
         #     return pygame.surfarray.array3d(self.screen)
 
@@ -275,10 +430,12 @@ class DiamondEnv:
 
     def __draw_info(self):
         episode_text = self.font2.render(
-            f"Episode: {self._episode}", True, self.INFO_TEXT_COLOR
+            f"Episode: {self._episode_count} ({self._total_steps})",
+            True,
+            self.INFO_TEXT_COLOR,
         )
         timestep_text = self.font3.render(
-            f"Timestep: {self._timestep}", True, self.INFO_TEXT_COLOR2
+            f"Timestep: {self._episode_steps}", True, self.INFO_TEXT_COLOR2
         )
         distance_text = self.font3.render(
             f"Distance from goal: {self.goal_distance:.3f}",
@@ -286,12 +443,12 @@ class DiamondEnv:
             self.INFO_TEXT_COLOR2,
         )
         ra_obs_text = self.font4.render(
-            f"RA Obs: {self.observations[0]}",
+            f"RA Obs: {self.obs[0]}",
             True,
             self.INFO_TEXT_COLOR2,
         )
         sa_obs_text = self.font4.render(
-            f"RA Obs: {self.observations[1]}",
+            f"RA Obs: {self.obs[1]}",
             True,
             self.INFO_TEXT_COLOR2,
         )

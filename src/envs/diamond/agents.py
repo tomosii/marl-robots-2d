@@ -1,3 +1,4 @@
+from enum import Enum
 import math
 import random
 import numpy as np
@@ -7,16 +8,33 @@ from typing import List, Tuple
 from envs.diamond.utils import line_intersect
 
 
+class Direction(Enum):
+    UP = 0
+    DOWN = 1
+    LEFT = 2
+    RIGHT = 3
+
+
 class Agent:
     def __init__(self):
+        # 動けるか
         self.movable: bool = None
+        # メッセージを送信できるか
         self.sendable: bool = None
 
     def reset(self):
-        pass
+        raise NotImplementedError
+
+    def move(self, direction: Direction):
+        raise NotImplementedError
 
 
 class RobotAgent(Agent, pygame.sprite.Sprite):
+    """
+    ロボットエージェント (RA)
+    周りをLiDARで観測しながら移動する
+    """
+
     def __init__(
         self,
         color: Tuple[int, int, int],
@@ -45,16 +63,16 @@ class RobotAgent(Agent, pygame.sprite.Sprite):
         self.vel = pygame.math.Vector2(0, 0)
         # self.acc = pygame.math.Vector2(0, 0)
 
-    def move(self, action):
+    def move(self, direction: Direction):
         self.vel = pygame.math.Vector2(0, 0)
 
-        if action == 0:
+        if direction == Direction.LEFT:
             self.vel.x = -self.VEL
-        if action == 1:
+        if direction == Direction.RIGHT:
             self.vel.x = self.VEL
-        if action == 2:
+        if direction == Direction.UP:
             self.vel.y = -self.VEL
-        if action == 3:
+        if direction == Direction.DOWN:
             self.vel.y = self.VEL
 
         # self.acc += self.vel * self.FRIC
@@ -71,7 +89,6 @@ class RobotAgent(Agent, pygame.sprite.Sprite):
         self.rect.center = self.pos
 
     def reset(self, pos):
-        super().reset()
         self.pos = pygame.math.Vector2(pos)
         self.vel = pygame.math.Vector2(0, 0)
         self.acc = pygame.math.Vector2(0, 0)
@@ -118,11 +135,18 @@ class RobotAgent(Agent, pygame.sprite.Sprite):
 
 
 class SensorAgent(Agent):
-    def __init__(self):
-        self.message = 0
+    """
+    センサーエージェント (SA)
+    動くことはできないが、全体を観測してメッセージを送信することができる
+    """
 
+    def __init__(self):
         self.movable = False
         self.sendable = True
 
     def reset(self):
-        return super().reset()
+        return
+
+    def move(self, direction: Direction):
+        print("SensorAgent can't move")
+        return

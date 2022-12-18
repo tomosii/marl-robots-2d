@@ -20,19 +20,19 @@ from run import run
 # Sacredの標準出力設定 "sys"(Windows), "fd"(Linux), "no"
 SETTINGS["CAPTURE_MODE"] = "no"
 
-WANDB_PROJECT = "foodbank-qmix"
+WANDB_PROJECT = "MARL-Robots-2D"
 WANDB_ENTITY = "lighthouse117"
 
 logger = get_logger()
 
 # Sacredで実験を定義
-ex = Experiment("foodbank_qmix")
+ex = Experiment("MARL-Robots-2D")
 ex.logger = logger
 ex.captured_out_filter = apply_backspaces_and_linefeeds
 
 results_path = os.path.join(dirname(dirname(abspath(__file__))), "results")
 
-np.set_printoptions(precision=5, floatmode='maxprec_equal')
+np.set_printoptions(precision=5, floatmode="maxprec_equal")
 np.set_printoptions(suppress=True)
 
 
@@ -45,7 +45,7 @@ def my_main(_run: Run, _config, _log):
     config = deepcopy(_config)
     np.random.seed(config["seed"])
     th.manual_seed(config["seed"])
-    config['env_args']['seed'] = config["seed"]
+    config["env_args"]["seed"] = config["seed"]
 
     # run the framework
     run(_run, config, _log)
@@ -60,7 +60,12 @@ def _get_config_from_yaml(file_name, subfolder):
     """
     指定されたYAMLからパラメータを読み込む
     """
-    with open(os.path.join(os.path.dirname(__file__), "config", subfolder, "{}.yaml".format(file_name)), "r") as f:
+    with open(
+        os.path.join(
+            os.path.dirname(__file__), "config", subfolder, "{}.yaml".format(file_name)
+        ),
+        "r",
+    ) as f:
         try:
             config_dict = yaml.safe_load(f)
         except yaml.YAMLError as exc:
@@ -71,7 +76,11 @@ def _get_config_from_yaml(file_name, subfolder):
 if __name__ == "__main__":
     # Get the defaults from default.yaml
     # default.yamlからデフォルトのパラメータを読み込む
-    with open(os.path.join(os.path.dirname(__file__), "config", "default.yaml"), "r", encoding="utf-8") as f:
+    with open(
+        os.path.join(os.path.dirname(__file__), "config", "default.yaml"),
+        "r",
+        encoding="utf-8",
+    ) as f:
         try:
             config_dict = yaml.safe_load(f)
         except yaml.YAMLError as exc:
@@ -81,11 +90,13 @@ if __name__ == "__main__":
     # 使用するアルゴリズムと環境設定を引数から読み込む
     parser = argparse.ArgumentParser()
     # アルゴリズム用
-    parser.add_argument("--algo", default="qmix",
-                        help="The algorithm to train the agent")
+    parser.add_argument(
+        "--algo", default="qmix", help="The algorithm to train the agent"
+    )
     # 環境設定用
-    parser.add_argument("--env", default="foodbank",
-                        help="Which environment settings to load")
+    parser.add_argument(
+        "--env", default="diamond", help="Which environment settings to load"
+    )
 
     # WandBを使用する際は"--wandb"をつけて実行
     parser.add_argument("--wandb", action="store_true")
@@ -117,15 +128,13 @@ if __name__ == "__main__":
     wandb.init(
         project=WANDB_PROJECT,
         entity=WANDB_ENTITY,
-        mode="online" if args.wandb else "disabled"
+        mode="online" if args.wandb else "disabled",
     )
     # パラメータを設定
     wandb.config.update(config_dict)
 
     # SacredにWandBのIDを記録
-    ex.add_config({
-        "wandb_id": wandb.run.id
-    })
+    ex.add_config({"wandb_id": wandb.run.id})
 
     # Sacredの実験を実行
     ex.run()

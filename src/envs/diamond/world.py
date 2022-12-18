@@ -18,9 +18,6 @@ class World:
     def agents(self) -> List[Agent]:
         raise NotImplementedError
 
-    def step(self, agent: Agent, action):
-        raise NotImplementedError
-
     def reset(self):
         raise NotImplementedError
 
@@ -208,73 +205,15 @@ class MuseumWorld(World):
             random_direction=random_direction,
         )
 
-    def step(self, actions):
+    def step(self):
         self.channel = 0
+        self.guard.patrol()
 
-        self.r_agent.move(actions)
-        return
-
-        for agent, action in zip(self.agents(), actions):
-            if agent.movable:
-                agent.move(action)
-
-            if agent.sendable:
-                self.send_message(action)
-        # self.guard.patrol()
-
-    def send_message(self, action):
-        self.channel = action
+    def send_message(self, message: int):
+        self.channel = message
 
     def get_message(self):
         return self.channel
-
-    def get_observations(self):
-
-        # エージェントからみたゴールの正規化された相対的な座標 [x, y]
-        relative_goal_position = self.get_relative_normalized_goal_position()
-
-        # 正規化された距離のLiDARセンサー値 [d1, ..., dn]
-        laser_distances = self.laser_scan()
-        normalized_laser_distances = self.normalize_distances(laser_distances)
-
-        # 2つを結合して観測とする [x, y, d1, ..., dn]
-        return np.hstack((relative_goal_position, normalized_laser_distances))
-
-        observations = []
-        for agent in self.agents():
-            if agent.movable:
-                # エージェントからみたゴールの正規化された相対的な座標 [x, y]
-                relative_goal_position = self.get_relative_normalized_goal_position()
-
-                # 正規化された距離のLiDARセンサー値 [d1, ..., dn]
-                laser_distances = self.laser_scan()
-                normalized_laser_distances = self.normalize_distances(laser_distances)
-
-                # 通信チャンネル
-                message = self.get_message()
-                one_hot_message = one_hot_encode(message, self.CHANNEL_SIZE)
-
-                # 2つを結合して観測とする [x, y, d1, ..., dn]
-                obs = np.hstack(
-                    (
-                        relative_goal_position,
-                        normalized_laser_distances,
-                        one_hot_message,
-                    )
-                )
-                observations.append(obs)
-
-            if agent.sendable:
-                # goal_absolute_position = self.get_relative_normalized_goal_position()
-                agent_absolute_position = self.get_agent_normalized_position()
-                obstacle_absolute_position = (
-                    self.get_moving_obstacle_normalized_position()
-                )
-
-                obs = np.hstack((agent_absolute_position, obstacle_absolute_position))
-                observations.append(obs)
-
-        return observations
 
     def draw(self, screen):
         self.maps.draw(screen)
@@ -306,7 +245,7 @@ class MuseumWorld(World):
         return lines
 
     def get_num_lasers(self) -> int:
-        return self.LIDAR_ANGLE // self.LIDAR_INTERVAL
+        return self.lidar_angle // self.lidar_interval
 
     def laser_scan(self) -> np.ndarray:
         self.laser_points = self.r_agent.laser_scan(self.__get_obstacle_lines())
@@ -317,10 +256,8 @@ class MuseumWorld(World):
             )
             for point in self.laser_points
         ]
-        return np.array(laser_distances)
-
-    def normalize_distances(self, distances: np.ndarray) -> np.ndarray:
-        return distances / self.LIDAR_RANGE
+        # 正規化
+        return np.array(laser_distances) / self.lidar_range
 
     def get_relative_normalized_goal_position(self) -> np.ndarray:
         return np.array(
@@ -343,12 +280,12 @@ class MuseumWorld(World):
         """
         エージェントとゴール間の正規化された距離
         """
-        return self.get_distance_from_goal() / self.LIDAR_RANGE
+        return self.get_distance_from_goal() / self.lidar_range
 
-    def get_agent_normalized_position(self):
+    def get_normalized_agent_position(self):
         return np.array(
             [self.r_agent.pos.x / self.WIDTH, self.r_agent.pos.y / self.HEIGHT]
         )
 
-    def get_moving_obstacle_normalized_position(self):
+    def get_normalized_guard_position(self):
         return np.array([self.guard.pos.x / self.WIDTH, self.guard.pos.y / self.HEIGHT])

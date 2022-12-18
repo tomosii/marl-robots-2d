@@ -7,14 +7,16 @@ from components.transforms import Transform
 
 
 class EpisodeBatch:
-    def __init__(self,
-                 scheme: dict,
-                 groups: dict,
-                 batch_size,
-                 max_seq_length,
-                 data=None,
-                 preprocess=None,
-                 device="cpu"):
+    def __init__(
+        self,
+        scheme: dict,
+        groups: dict,
+        batch_size,
+        max_seq_length,
+        data=None,
+        preprocess=None,
+        device="cpu",
+    ):
         self.scheme = scheme.copy()
         self.groups = groups
         self.batch_size = batch_size  # batch_size = 1
@@ -29,10 +31,13 @@ class EpisodeBatch:
             self.data = SN()
             self.data.transition_data = {}
             self.data.episode_data = {}
-            self._setup_data(self.scheme, self.groups,
-                             batch_size, max_seq_length, self.preprocess)
+            self._setup_data(
+                self.scheme, self.groups, batch_size, max_seq_length, self.preprocess
+            )
 
-    def _setup_data(self, scheme: dict, groups: dict, batch_size, max_seq_length, preprocess: dict):
+    def _setup_data(
+        self, scheme: dict, groups: dict, batch_size, max_seq_length, preprocess: dict
+    ):
         """
         それぞれのデータのShapeを計算し、事前にバッチに最大ステップ数分の空のテンソルを作っておく
         """
@@ -55,25 +60,27 @@ class EpisodeBatch:
                 for transform in transforms:
                     vshape, dtype = transform.infer_output_info(vshape, dtype)
 
-                self.scheme[new_k] = {
-                    "vshape": vshape,
-                    "dtype": dtype
-                }
+                self.scheme[new_k] = {"vshape": vshape, "dtype": dtype}
                 if "group" in self.scheme[k]:
                     self.scheme[new_k]["group"] = self.scheme[k]["group"]
                 if "episode_const" in self.scheme[k]:
-                    self.scheme[new_k]["episode_const"] = self.scheme[k]["episode_const"]
+                    self.scheme[new_k]["episode_const"] = self.scheme[k][
+                        "episode_const"
+                    ]
 
         assert "filled" not in scheme, '"filled" is a reserved key for masking.'
-        scheme.update({
-            "filled": {"vshape": (1,), "dtype": th.long},
-        })
+        scheme.update(
+            {
+                "filled": {"vshape": (1,), "dtype": th.long},
+            }
+        )
 
         # "group"で指定されているエージェントごとに存在するデータ（行動、観測など）は
         # schemeで指定されているShape × エージェント数 になる
         for field_key, field_info in scheme.items():
             assert "vshape" in field_info, "Scheme must define vshape for {}".format(
-                field_key)
+                field_key
+            )
             vshape = field_info["vshape"]
             # print(field_key, vshape)
             episode_const = field_info.get("episode_const", False)
@@ -86,25 +93,36 @@ class EpisodeBatch:
 
             if group:
                 # エージェントごとの次元を追加
-                assert group in groups, "Group {} must have its number of members defined in _groups_".format(
-                    group)
+                assert (
+                    group in groups
+                ), "Group {} must have its number of members defined in _groups_".format(
+                    group
+                )
                 shape = (groups[group], *vshape)
             else:
                 shape = vshape
 
             if episode_const:
                 self.data.episode_data[field_key] = th.zeros(
-                    (batch_size, *shape), dtype=dtype, device=self.device)
+                    (batch_size, *shape), dtype=dtype, device=self.device
+                )
             else:
                 # ゼロ埋めのテンソルを生成
                 self.data.transition_data[field_key] = th.zeros(
-                    (batch_size, max_seq_length, *shape), dtype=dtype, device=self.device)
+                    (batch_size, max_seq_length, *shape),
+                    dtype=dtype,
+                    device=self.device,
+                )
                 # print("{}のひな形を追加 shape: {}".format(
                 #     field_key, self.data.transition_data[field_key].shape))
 
     def extend(self, scheme, groups=None):
-        self._setup_data(scheme, self.groups if groups is None else groups,
-                         self.batch_size, self.max_seq_length)
+        self._setup_data(
+            scheme,
+            self.groups if groups is None else groups,
+            self.batch_size,
+            self.max_seq_length,
+        )
 
     def to(self, device):
         for k, v in self.data.transition_data.items():
@@ -143,8 +161,7 @@ class EpisodeBatch:
                 target = self.data.episode_data
                 _slices = slices[0]
             else:
-                raise KeyError(
-                    "{} not found in transition or episode data".format(k))
+                raise KeyError("{} not found in transition or episode data".format(k))
 
             dtype = self.scheme[k].get("dtype", th.float32)
             if not isinstance(v, th.Tensor):
@@ -177,7 +194,8 @@ class EpisodeBatch:
             if v.shape[idx] != s:
                 if s != 1:
                     raise ValueError(
-                        "Unsafe reshape of {} to {}".format(v.shape, dest.shape))
+                        "Unsafe reshape of {} to {}".format(v.shape, dest.shape)
+                    )
             else:
                 idx -= 1
         # print("NO PROBLEM")
@@ -202,10 +220,19 @@ class EpisodeBatch:
 
             # Update the scheme to only have the requested keys
             new_scheme = {key: self.scheme[key] for key in item}
-            new_groups = {self.scheme[key]["group"]: self.groups[self.scheme[key]["group"]]
-                          for key in item if "group" in self.scheme[key]}
-            ret = EpisodeBatch(new_scheme, new_groups, self.batch_size,
-                               self.max_seq_length, data=new_data, device=self.device)
+            new_groups = {
+                self.scheme[key]["group"]: self.groups[self.scheme[key]["group"]]
+                for key in item
+                if "group" in self.scheme[key]
+            }
+            ret = EpisodeBatch(
+                new_scheme,
+                new_groups,
+                self.batch_size,
+                self.max_seq_length,
+                data=new_data,
+                device=self.device,
+            )
             return ret
         else:
             item = self._parse_slices(item)
@@ -218,8 +245,14 @@ class EpisodeBatch:
             ret_bs = self._get_num_items(item[0], self.batch_size)
             ret_max_t = self._get_num_items(item[1], self.max_seq_length)
 
-            ret = EpisodeBatch(self.scheme, self.groups, ret_bs,
-                               ret_max_t, data=new_data, device=self.device)
+            ret = EpisodeBatch(
+                self.scheme,
+                self.groups,
+                ret_bs,
+                ret_max_t,
+                data=new_data,
+                device=self.device,
+            )
             return ret
 
     def _get_num_items(self, indexing_item, max_size):
@@ -238,11 +271,14 @@ class EpisodeBatch:
     def _parse_slices(self, items):
         parsed = []
         # Only batch slice given, add full time slice
-        if (isinstance(items, slice)  # slice a:b
-                    or isinstance(items, int)  # int i
-                    # [a,b,c]
-                    or (isinstance(items, (list, np.ndarray, th.LongTensor, th.cuda.LongTensor)))
-                ):
+        if (
+            isinstance(items, slice)  # slice a:b
+            or isinstance(items, int)  # int i
+            # [a,b,c]
+            or (
+                isinstance(items, (list, np.ndarray, th.LongTensor, th.cuda.LongTensor))
+            )
+        ):
             items = (items, slice(None))
 
         # Need the time indexing to be contiguous
@@ -263,10 +299,9 @@ class EpisodeBatch:
         return th.sum(self.data.transition_data["filled"], 1).max(0)[0]
 
     def __repr__(self):
-        return "EpisodeBatch. Batch Size:{} Max_seq_len:{} Keys:{} Groups:{}".format(self.batch_size,
-                                                                                     self.max_seq_length,
-                                                                                     self.scheme.keys(),
-                                                                                     self.groups.keys())
+        return "EpisodeBatch. Batch Size:{} Max_seq_len:{} Keys:{} Groups:{}".format(
+            self.batch_size, self.max_seq_length, self.scheme.keys(), self.groups.keys()
+        )
 
 
 class ReplayBuffer(EpisodeBatch):
@@ -275,11 +310,19 @@ class ReplayBuffer(EpisodeBatch):
     複数のEpisodeBatchを格納する、巨大な1つのEpisodeBatch
     """
 
-    def __init__(self, scheme, groups, buffer_size, max_seq_length, preprocess=None, device="cpu"):
+    def __init__(
+        self, scheme, groups, buffer_size, max_seq_length, preprocess=None, device="cpu"
+    ):
         # EpisodeBatchを継承
         # 巨大な1つのEpisodeBatchをReplayBufferとして用いる
-        super(ReplayBuffer, self).__init__(scheme, groups, buffer_size,
-                                           max_seq_length, preprocess=preprocess, device=device)
+        super(ReplayBuffer, self).__init__(
+            scheme,
+            groups,
+            buffer_size,
+            max_seq_length,
+            preprocess=preprocess,
+            device=device,
+        )
         # メモリのバッファサイズ（記憶できるエピソード数） = 巨大なEpisodeBatchのバッチサイズ
         self.buffer_size = buffer_size  # same as self.batch_size but more explicit
         # 現在記憶しているエピソード数
@@ -292,19 +335,21 @@ class ReplayBuffer(EpisodeBatch):
         """
         if self.buffer_index + ep_batch.batch_size <= self.buffer_size:
             # まだバッファが満杯でなければ
-            self.update(ep_batch.data.transition_data,
-                        slice(self.buffer_index, self.buffer_index +
-                              ep_batch.batch_size),
-                        slice(0, ep_batch.max_seq_length),
-                        mark_filled=False)
-            self.update(ep_batch.data.episode_data,
-                        slice(self.buffer_index, self.buffer_index + ep_batch.batch_size))
+            self.update(
+                ep_batch.data.transition_data,
+                slice(self.buffer_index, self.buffer_index + ep_batch.batch_size),
+                slice(0, ep_batch.max_seq_length),
+                mark_filled=False,
+            )
+            self.update(
+                ep_batch.data.episode_data,
+                slice(self.buffer_index, self.buffer_index + ep_batch.batch_size),
+            )
 
             # 現在のバッファのインデックスを更新（ep_batch.batch_size=1 なので +1）
-            self.buffer_index = (self.buffer_index + ep_batch.batch_size)
+            self.buffer_index = self.buffer_index + ep_batch.batch_size
             # バッファに含まれるエピソード数（並列の際を考慮）
-            self.episodes_in_buffer = max(
-                self.episodes_in_buffer, self.buffer_index)
+            self.episodes_in_buffer = max(self.episodes_in_buffer, self.buffer_index)
             # buffer_index が buffer_size を超えたらリセット
             self.buffer_index = self.buffer_index % self.buffer_size
             assert self.buffer_index < self.buffer_size
@@ -335,11 +380,14 @@ class ReplayBuffer(EpisodeBatch):
             # Uniform sampling only atm
             # ランダムにサンプリング
             ep_ids = np.random.choice(
-                self.episodes_in_buffer, batch_size, replace=False)
+                self.episodes_in_buffer, batch_size, replace=False
+            )
             return self[ep_ids]
 
     def __repr__(self):
-        return "ReplayBuffer. {}/{} episodes. Keys:{} Groups:{}".format(self.episodes_in_buffer,
-                                                                        self.buffer_size,
-                                                                        self.scheme.keys(),
-                                                                        self.groups.keys())
+        return "ReplayBuffer. {}/{} episodes. Keys:{} Groups:{}".format(
+            self.episodes_in_buffer,
+            self.buffer_size,
+            self.scheme.keys(),
+            self.groups.keys(),
+        )

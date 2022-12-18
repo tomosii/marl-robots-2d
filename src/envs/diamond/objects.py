@@ -109,19 +109,8 @@ class Guard(pygame.sprite.Sprite):
         self.vel = pygame.math.Vector2(0, 0)
         self.acc = pygame.math.Vector2(0, 0)
 
-    def patrol(self, corner1, goal1, corner2, goal2):
-        if self.path == Orientation.HORIZONTAL:
-            if self.pos.x > corner1:
-                self.pos.x -= self.VEL
-            elif self.pos.y < goal1:
-                self.pos.y += self.VEL
-        else:
-            if self.pos.y < corner2:
-                self.pos.y += self.VEL
-            elif self.pos.x > goal2:
-                self.pos.x -= self.VEL
-
-        self.rect.center = self.pos
+    def patrol(self):
+        pass
 
     def reset(self, pos, random_direction=None):
         self.pos = pygame.math.Vector2(pos)
