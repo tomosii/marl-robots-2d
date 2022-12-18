@@ -6,7 +6,7 @@ mac: "basic_mac" # Basic controller
 env: "diamond" # Environment name
 env_args: {} # Arguments for the environment
 batch_size_run: 1 # Number of environments to run in parallel
-test_nepisode: 3 # Number of episodes to test for
+test_nepisode: 5 # Number of episodes to test for
 test_interval: 5000 # Test after {} timesteps have passed
 test_greedy: True # Use greedy evaluation (if False, will set epsilon floor to 0
 log_interval: 5000 # Log summary of stats after every {} timesteps
@@ -28,8 +28,8 @@ buffer_cpu_only: True # If true we won't keep all of the replay buffer in vram
 
 # --- RL hyperparameters ---
 gamma: 0.99
-batch_size: 32 # Number of episodes to train on
-buffer_size: 32 # Size of the replay buffer
+batch_size: 128 # Number of episodes to train on
+buffer_size: 5000 # Size of the replay buffer
 lr: 0.0005 # Learning rate for agents
 critic_lr: 0.0005 # Learning rate for critics
 optim_alpha: 0.99 # RMSProp alpha

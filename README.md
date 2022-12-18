@@ -9,7 +9,7 @@ Experiments with deep multi-agent reinfocement learning for robots in a simple 2
 ## 使い方
 
 ```
-python src/main.py --algo qmix --env diamond --wandb
+python3 src/main.py --algo qmix --env diamond --wandb
 ```
 
 `--algo`: 使用するアルゴリズムを指定

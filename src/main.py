@@ -26,7 +26,10 @@ WANDB_ENTITY = "lighthouse117"
 logger = get_logger()
 
 # Sacredで実験を定義
-ex = Experiment("MARL-Robots-2D")
+ex = Experiment(
+    "MARL-Robots-2D",
+    save_git_info=False,
+)
 ex.logger = logger
 ex.captured_out_filter = apply_backspaces_and_linefeeds
 

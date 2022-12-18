@@ -1,5 +1,6 @@
 import random
 import time
+import os
 import numpy as np
 import pygame
 from typing import List, Tuple
@@ -70,6 +71,7 @@ class DiamondEnv:
         seed,
         enable_render: bool = False,
     ):
+        # os.environ['SDL_VIDEODRIVER'] = 'dummy'
         pygame.init()
         pygame.display.set_caption("Diamond Env")
         np.set_printoptions(precision=2, suppress=True)
