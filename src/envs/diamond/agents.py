@@ -63,6 +63,8 @@ class RobotAgent(Agent, pygame.sprite.Sprite):
         self.vel = pygame.math.Vector2(0, 0)
         # self.acc = pygame.math.Vector2(0, 0)
 
+        self.mileage = 0
+
     def move(self, direction: Direction):
         self.vel = pygame.math.Vector2(0, 0)
 
@@ -88,11 +90,14 @@ class RobotAgent(Agent, pygame.sprite.Sprite):
 
         self.rect.center = self.pos
 
+        self.mileage += self.VEL
+
     def reset(self, pos):
         self.pos = pygame.math.Vector2(pos)
         self.vel = pygame.math.Vector2(0, 0)
         self.acc = pygame.math.Vector2(0, 0)
         self.rect.center = self.pos
+        self.mileage = 0
 
     def __create_lasers(self) -> np.ndarray:
         lasers = []

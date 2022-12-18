@@ -185,7 +185,10 @@ class DiamondEnv:
         assert len(actions) == self.n_agents
 
         self.terminated = False
-        info = {}
+        info = {
+            "is_success": False,
+            "timeout": False,
+        }
 
         # 警備員の移動
         self.world.step()
@@ -238,6 +241,10 @@ class DiamondEnv:
 
         # 報酬を獲得
         self.reward = self.get_reward()
+
+        # 総走行距離
+        if self.terminated:
+            info["mileage"] = self.world.get_mileage()
 
         # 描画
         if self.enable_render:

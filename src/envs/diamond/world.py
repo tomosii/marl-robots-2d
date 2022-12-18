@@ -289,3 +289,6 @@ class MuseumWorld(World):
 
     def get_normalized_guard_position(self):
         return np.array([self.guard.pos.x / self.WIDTH, self.guard.pos.y / self.HEIGHT])
+
+    def get_mileage(self):
+        return self.r_agent.mileage
