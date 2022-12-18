@@ -3,7 +3,7 @@ import enum
 import copy
 import logging
 
-from envs.foodbank.food_situations import get_food_params
+from envs_pymarl.foodbank.food_situations import get_food_params
 
 # AGENTS_COUNT = 2
 # FOODS = [20, 20, 20]
@@ -21,7 +21,7 @@ class EpisodeStatus(enum.IntEnum):
     TIMEOUT = 2
 
 
-class FoodAllocationEnv():
+class FoodAllocationEnv:
     """
     The food allocation environment for decentralised multi-agent
     micromanagement scenarios in Food Bank.
@@ -29,7 +29,18 @@ class FoodAllocationEnv():
     フードバンクにおけるマルチエージェント食品分配シミュレーション環境
     """
 
-    def __init__(self, full_observable, episode_limit, debug, situation_name, reward_mean_weight, reward_std_weight, reward_complete_bonus, reward_step_cost, seed,):
+    def __init__(
+        self,
+        full_observable,
+        episode_limit,
+        debug,
+        situation_name,
+        reward_mean_weight,
+        reward_std_weight,
+        reward_complete_bonus,
+        reward_step_cost,
+        seed,
+    ):
         food_params = get_food_params(situation_name)
 
         self.n_agents = food_params["n_agents"]
@@ -85,21 +96,15 @@ class FoodAllocationEnv():
 
         if self.print_log:
             logging.debug("\n\n")
-            logging.debug(
-                "Started Episode {}".format(self.episode).center(
-                    60, "*"
-                )
-            )
+            logging.debug("Started Episode {}".format(self.episode).center(60, "*"))
             logging.debug("Bank Stock".center(60, "-"))
             logging.debug(self.bank_stock)
             logging.debug("Agent Stock".center(60, "-"))
             for agent_i in range(self.n_agents):
-                logging.debug("Agent{}: {}".format(
-                    agent_i, self.agents_stock[agent_i]))
+                logging.debug("Agent{}: {}".format(agent_i, self.agents_stock[agent_i]))
             logging.debug("Agent Request".center(60, "-"))
             for agent_i in range(self.n_agents):
-                logging.debug("Agent{}: {}".format(
-                    agent_i, self.requests[agent_i]))
+                logging.debug("Agent{}: {}".format(agent_i, self.requests[agent_i]))
 
         return self.get_obs(debug=False), self.get_state()
 
@@ -136,30 +141,34 @@ class FoodAllocationEnv():
 
             for agent_i in range(self.n_agents):
                 info.update(
-                    {"agent{}_satisfaction".format(agent_i): agents_satisfaction[agent_i]})
-            info.update({
-                "satisfaction_mean": np.mean(agents_satisfaction),
-                "satisfaction_std": np.std(agents_satisfaction),
-            })
+                    {
+                        "agent{}_satisfaction".format(agent_i): agents_satisfaction[
+                            agent_i
+                        ]
+                    }
+                )
+            info.update(
+                {
+                    "satisfaction_mean": np.mean(agents_satisfaction),
+                    "satisfaction_std": np.std(agents_satisfaction),
+                }
+            )
 
         if self.print_log:
-            logging.debug("TIMESTEP {}".format(
-                self._step_count).center(60, "-"))
+            logging.debug("TIMESTEP {}".format(self._step_count).center(60, "-"))
             logging.debug("Actions".center(60, "-"))
             logging.debug("Bank Stock".center(60, "-"))
             logging.debug(self.bank_stock)
             logging.debug("Agent Stock".center(60, "-"))
             for agent_i in range(self.n_agents):
-                logging.debug("Agent{}: {}".format(
-                    agent_i, self.agents_stock[agent_i]))
+                logging.debug("Agent{}: {}".format(agent_i, self.agents_stock[agent_i]))
 
         if status is EpisodeStatus.COMPLETED:
             terminated = True
             reward += self.reward_complete_bonus
             info["completed"] = True
             if self.print_log:
-                logging.debug("Complete Bonus: {}".format(
-                    self.reward_complete_bonus))
+                logging.debug("Complete Bonus: {}".format(self.reward_complete_bonus))
                 logging.debug("Episode Completed.")
 
         elif status is EpisodeStatus.TIMEOUT:
@@ -196,14 +205,12 @@ class FoodAllocationEnv():
             # 自身の在庫が1つ増える
             self.agents_stock[agent_i][food] += 1
             if self.print_log:
-                logging.debug(
-                    "Agent {}: Get a Food{}".format(agent_i, food))
+                logging.debug("Agent {}: Get a Food{}".format(agent_i, food))
         else:
             # 在庫がない（他のエージェントにもうとられた）
             # TODO: 選択した行動と一致していないので検討が必要
             if self.print_log:
-                logging.debug(
-                    "Agent {}: Couldn't Get a Food{}".format(agent_i, food))
+                logging.debug("Agent {}: Couldn't Get a Food{}".format(agent_i, food))
 
     def get_satisfaction(self):
         # 残り個数が 最小残り個数+5個以下 だった場合に報酬
@@ -232,18 +239,18 @@ class FoodAllocationEnv():
         reward_std_satis = np.std(agents_satisfaction)
 
         # 重み
-        reward = self.reward_mean_weight * reward_mean_satis - \
-            self.reward_std_weight * reward_std_satis
+        reward = (
+            self.reward_mean_weight * reward_mean_satis
+            - self.reward_std_weight * reward_std_satis
+        )
 
         if self.print_log:
             # logging.debug("Agents Stock: {}".format(self.agents_stock))
-            logging.debug("Agents Satisfaction: {}".format(
-                agents_satisfaction))
+            logging.debug("Agents Satisfaction: {}".format(agents_satisfaction))
             logging.debug("Leftover Count: {}".format(sum(self.bank_stock)))
 
             logging.debug("Mean Satis.: {}".format(reward_mean_satis))
-            logging.debug("Std Satis.: {}".format(
-                reward_std_satis))
+            logging.debug("Std Satis.: {}".format(reward_std_satis))
             logging.debug("REWARD (Satisfaction): {}".format(reward))
 
         return reward
@@ -314,14 +321,14 @@ class FoodAllocationEnv():
             avail_agent = np.zeros(self.n_foods)
             # 要求個数以上取れないようにする
             avail_food = (self.bank_stock > 0) & (
-                self.agents_stock[agent_i] < self.requests[agent_i])
+                self.agents_stock[agent_i] < self.requests[agent_i]
+            )
             # avail_food = self.bank_stock > 0
             avail_agent[avail_food] = 1
             avail_actions.append(np.append(avail_agent, 1))
 
             if self.print_log:
-                logging.debug(
-                    "Agent{} Avail Food: {}".format(agent_i, avail_agent))
+                logging.debug("Agent{} Avail Food: {}".format(agent_i, avail_agent))
 
         # print(avail_actions)
         return avail_actions
@@ -339,16 +346,16 @@ class FoodAllocationEnv():
         remaining = [0 for _ in range(self.n_foods)]
         for food in range(self.n_foods):
             # 残量率
-            remaining[food] = self.bank_stock[food] / \
-                self.initial_stock[food]
+            remaining[food] = self.bank_stock[food] / self.initial_stock[food]
 
         # 要求が満たされた割合
         for agent_i in range(self.n_agents):
             satisfaction = [0 for _ in range(self.n_foods)]
             for food in range(self.n_foods):
                 # 満足度
-                satisfaction[food] = self.agents_stock[agent_i][food] / \
-                    self.requests[agent_i][food]
+                satisfaction[food] = (
+                    self.agents_stock[agent_i][food] / self.requests[agent_i][food]
+                )
 
             agent_obs = np.concatenate([remaining, satisfaction])
             _obs.append(agent_obs)

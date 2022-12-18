@@ -1,0 +1,20 @@
+env: diamond
+
+env_args:
+  episode_limit: 50
+  debug: True
+  agent_velocity: 3,
+  guard_velocity: 3,
+  channel_size: 2,
+  lidar_angle: 360,
+  lidar_interval: 45,
+  reward_success: 100,
+  reward_failure: -100,
+
+  # situation_name: "10a10f_c8"
+
+  # reward_mean_weight: 1
+  # reward_std_weight: 1
+  # reward_complete_bonus: 1
+  # reward_step_cost: -0.01
+  

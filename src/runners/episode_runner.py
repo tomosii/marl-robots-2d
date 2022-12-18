@@ -8,7 +8,8 @@ from controllers.basic_controller import BasicMAC
 
 # from smac.env import StarCraft2Env
 # from envs.checkers import Checkers
-from envs.foodbank.food_allocation import FoodAllocationEnv
+from envs_pymarl.foodbank.food_allocation import FoodAllocationEnv
+from envs.diamond.diamond import DiamondEnv
 from utils.logging import Logger
 
 
@@ -24,7 +25,7 @@ class EpisodeRunner:
         assert self.batch_size == 1
 
         # 環境
-        self.env = FoodAllocationEnv(**self.args.env_args)
+        self.env = DiamondEnv(**self.args.env_args)
 
         self.episode = 0
 
@@ -49,8 +50,15 @@ class EpisodeRunner:
         MACを設定 & EpisodeBatchの設定
         """
         # EpisodeBatchの引数を固定したものをここで作っておく（初期化のたびに再利用するため）
-        self.new_batch = partial(EpisodeBatch, scheme, groups, self.batch_size, self.episode_limit + 1,
-                                 preprocess=preprocess, device=self.args.device)
+        self.new_batch = partial(
+            EpisodeBatch,
+            scheme,
+            groups,
+            self.batch_size,
+            self.episode_limit + 1,
+            preprocess=preprocess,
+            device=self.args.device,
+        )
 
         # 渡されたMACを保持
         self.mac = mac
@@ -105,7 +113,7 @@ class EpisodeRunner:
                 # 各エージェントの選択可能な行動
                 "avail_actions": [self.env.get_avail_actions()],
                 # エージェントの部分観測
-                "obs": [self.env.get_obs()]
+                "obs": [self.env.get_obs()],
             }
 
             # バッチに遷移前の情報を追加
@@ -115,7 +123,8 @@ class EpisodeRunner:
             # Receive the actions for each agent at this timestep in a batch of size 1
             # 現時点のバッチ（エピソードの最初から今までの遷移情報が含まれている）を渡して、Agent Networkから行動を決定
             actions = self.mac.select_actions(
-                self.batch, t_ep=self.t, t_env=self.t_env, test_mode=test_mode)
+                self.batch, t_ep=self.t, t_env=self.t_env, test_mode=test_mode
+            )
 
             # 行動を出力して、環境からフィードバックを得る
             # 返り値 = 報酬，エピソードが終了したか，環境情報
@@ -149,7 +158,7 @@ class EpisodeRunner:
             # 選択可能な行動
             "avail_actions": [self.env.get_avail_actions()],
             # 部分観測
-            "obs": [self.env.get_obs()]
+            "obs": [self.env.get_obs()],
         }
 
         # バッチに終端状態の情報を追加
@@ -158,7 +167,8 @@ class EpisodeRunner:
         # Select actions in the last stored state
         # 終端状態における行動をAgent Networkから決定（？）
         actions = self.mac.select_actions(
-            self.batch, t_ep=self.t, t_env=self.t_env, test_mode=test_mode)
+            self.batch, t_ep=self.t, t_env=self.t_env, test_mode=test_mode
+        )
         # バッチに最後の行動を追加
         self.batch.update({"actions": actions}, ts=self.t)
 
@@ -172,13 +182,16 @@ class EpisodeRunner:
         log_prefix = "test_" if test_mode else ""
 
         # sum_statsにenv_infoの値を加算していく
-        sum_stats.update({k: sum_stats.get(k, 0) + env_info.get(k, 0)
-                          for k in set(sum_stats) | set(env_info)})
+        sum_stats.update(
+            {
+                k: sum_stats.get(k, 0) + env_info.get(k, 0)
+                for k in set(sum_stats) | set(env_info)
+            }
+        )
 
         # 何エピソード分の和かわかるようにn_episodesを加算していく
         sum_stats["n_episodes"] = 1 + sum_stats.get("n_episodes", 0)
-        sum_stats["episode_length"] = self.t + \
-            sum_stats.get("episode_length", 0)
+        sum_stats["episode_length"] = self.t + sum_stats.get("episode_length", 0)
 
         # 累計タイムステップを蓄積（テスト時以外）
         if not test_mode:
@@ -195,9 +208,11 @@ class EpisodeRunner:
             self._log(total_reward_history, sum_stats, log_prefix)
             if hasattr(self.mac.action_selector, "epsilon"):
                 self.logger.log_stat(
-                    "epsilon", self.mac.action_selector.epsilon, self.t_env)
+                    "epsilon", self.mac.action_selector.epsilon, self.t_env
+                )
                 wandb.log(
-                    {"epsilon": self.mac.action_selector.epsilon}, step=self.t_env)
+                    {"epsilon": self.mac.action_selector.epsilon}, step=self.t_env
+                )
             self.log_train_stats_t = self.t_env
 
         # バッチを返す
@@ -212,10 +227,10 @@ class EpisodeRunner:
 
         # 報酬の総和の平均・分散
         total_reward_mean = np.mean(total_reward_history)
-        self.logger.log_stat(prefix + "total_reward",
-                             total_reward_mean, self.t_env)
-        self.logger.log_stat(prefix + "return_std",
-                             np.std(total_reward_history), self.t_env)
+        self.logger.log_stat(prefix + "total_reward", total_reward_mean, self.t_env)
+        self.logger.log_stat(
+            prefix + "return_std", np.std(total_reward_history), self.t_env
+        )
 
         wandb.log({prefix + "total_reward": total_reward_mean}, step=self.t_env)
 
@@ -226,8 +241,7 @@ class EpisodeRunner:
         for key, value in sum_stats.items():
             if key != "n_episodes":
                 stat = value / sum_stats["n_episodes"]
-                self.logger.log_stat(prefix + key + "_mean",
-                                     stat, self.t_env)
+                self.logger.log_stat(prefix + key + "_mean", stat, self.t_env)
                 wandb.log({prefix + key: stat}, step=self.t_env)
 
         # env_infoの履歴をクリア
