@@ -3,9 +3,9 @@ import numpy as np
 import pygame
 from typing import List, Tuple
 
-from envs.diamond.objects import Goal, Room, Wall, Border, Guard, Orientation
-from envs.diamond.agents import RobotAgent, SensorAgent, Agent
-from envs.diamond.utils import one_hot_encode
+from envs.randezvous.objects import Goal, Room, Wall, Border, Guard, Orientation
+from envs.randezvous.agents import RobotAgent, SensorAgent, Agent
+from envs.randezvous.utils import one_hot_encode
 
 
 class World:
@@ -14,9 +14,6 @@ class World:
         self.players: pygame.sprite.Group = None
         self.maps: pygame.sprite.Group = None
         self.walls: List[Wall] = None
-
-    def agents(self) -> List[Agent]:
-        raise NotImplementedError
 
     def reset(self):
         raise NotImplementedError
@@ -31,7 +28,7 @@ class World:
         raise NotImplementedError
 
 
-class MuseumWorld(World):
+class RandezvousWorld(World):
     AGENT_SIZE = 15
     GUARD_SIZE = 50
     GOAL_SIZE = 50
@@ -47,8 +44,8 @@ class MuseumWorld(World):
     FLOOR_COLOR = (80, 85, 90)
     BORDER_COLOR = (60, 67, 75)
     GOAL_COLOR = (60, 65, 72)
-    AGENT_COLOR = (70, 180, 180)
-    GUARD_COLOR = (180, 60, 60)
+    AGENT1_COLOR = (70, 180, 180)
+    AGENT2_COLOR = (180, 60, 60)
     LASER_COLOR = (100, 105, 115)
     LASER_POINT_COLOR = (200, 60, 60)
 
@@ -77,29 +74,46 @@ class MuseumWorld(World):
 
         self.lidar_range = math.sqrt(self.WIDTH**2 + self.HEIGHT**2)
 
-        self.r_agent = RobotAgent(
-            self.AGENT_COLOR,
+        agent1 = RobotAgent(
+            self.AGENT1_COLOR,
             self.AGENT_SIZE,
             self.agent_velocity,
             self.lidar_range,
             self.lidar_angle,
             self.lidar_interval,
         )
-        self.s_agent = SensorAgent()
 
-        self.AGENT_POS = (
-            self.WIDTH - self.CORRIDOR_WIDTH // 2,
-            self.HEIGHT - self.WALL_HEIGHT // 2,
+        agent2 = RobotAgent(
+            self.AGENT2_COLOR,
+            self.AGENT_SIZE,
+            self.agent_velocity,
+            self.lidar_range,
+            self.lidar_angle,
+            self.lidar_interval,
         )
+        self.agents = [agent1, agent2]
+
+        self.initial_positions = [
+            (
+                self.WIDTH - self.CORRIDOR_WIDTH // 2,
+                self.HEIGHT - self.WALL_HEIGHT // 2,
+            ),
+            (self.CORRIDOR_WIDTH // 2, self.HEIGHT - self.WALL_HEIGHT // 2),
+        ]
+
+        # self.AGENT1_POS = (
+        #     self.WIDTH - self.CORRIDOR_WIDTH // 2,
+        #     self.HEIGHT - self.WALL_HEIGHT // 2,
+        # )
+
+        # self.AGENT2_POS = (
+        #     self.CORRIDOR_WIDTH // 2,
+        #     self.HEIGHT - self.WALL_HEIGHT // 2,
+        # )
 
         self.channel = None
 
-        self.guard = Guard(
-            self.GUARD_COLOR,
-            self.GUARD_SIZE,
-            self.guard_velocity,
-        )
-        self.players = pygame.sprite.Group(self.r_agent, self.guard)
+        self.players = pygame.sprite.Group(agent1, agent2)
 
         self.scan_points = []
 
@@ -192,22 +206,20 @@ class MuseumWorld(World):
         img = pygame.image.load("src/envs/diamond/diamond.png")
         self.diamond_img = pygame.transform.scale(img, (self.GOAL_SIZE, self.GOAL_SIZE))
 
-    def agents(self) -> List[Agent]:
-        return [self.r_agent]
-
     def reset(self, random_direction=False):
         self.channel = None
-        self.r_agent.reset(self.AGENT_POS)
-        self.s_agent.reset()
 
-        self.guard.reset(
-            (self.CORRIDOR_WIDTH // 2, self.HEIGHT - self.GUARD_SIZE // 2),
-            random_direction=random_direction,
-        )
+        for i, agent in enumerate(self.agents):
+            agent.reset(self.initial_positions[i])
+
+        # self.guard.reset(
+        #     (self.CORRIDOR_WIDTH // 2, self.HEIGHT - self.GUARD_SIZE // 2),
+        #     random_direction=random_direction,
+        # )
 
     def step(self):
         self.channel = 0
-        self.guard.patrol()
+        # self.guard.patrol()
 
     def send_message(self, message: int):
         self.channel = message
@@ -218,7 +230,7 @@ class MuseumWorld(World):
     def draw(self, screen):
         self.maps.draw(screen)
         self.borders.draw(screen)
-        self.__draw_lasers(screen)
+        # self.__draw_lasers(screen)
         self.players.draw(screen)
         screen.blit(
             self.diamond_img, (self.WIDTH // 2 - self.GOAL_SIZE // 2, self.WALL_GAP)
@@ -230,10 +242,15 @@ class MuseumWorld(World):
             pygame.draw.circle(screen, self.LASER_POINT_COLOR, intersection, 2.5)
 
     def check_collision(self):
-        return pygame.sprite.spritecollideany(self.r_agent, self.borders)
+        for player in self.players:
+            if pygame.sprite.spritecollideany(player, self.borders):
+                return True
 
-    def check_goal(self):
-        return pygame.sprite.collide_rect(self.r_agent, self.goal)
+    def check_both_goal(self):
+        for agent in self.agents:
+            if not pygame.sprite.collide_rect(self.goal, agent):
+                return False
+        return True
 
     def __get_obstacle_lines(self) -> List:
         """
@@ -292,3 +309,26 @@ class MuseumWorld(World):
 
     def get_mileage(self):
         return self.r_agent.mileage
+
+    def get_goal_relative_position(self, agent: RobotAgent):
+        return np.array(
+            [
+                (self.goal.rect.centerx - agent.pos.x) / self.WIDTH,
+                (self.goal.rect.centery - agent.pos.y) / self.HEIGHT,
+            ]
+        )
+
+    def get_agent_position(self, agent: RobotAgent):
+        return np.array([agent.pos.x / self.WIDTH, agent.pos.y / self.HEIGHT])
+
+    def get_sum_distance_from_goal(self):
+        return sum(
+            [
+                math.sqrt(
+                    (agent.pos.x - self.goal.rect.center[0]) ** 2
+                    + (agent.pos.y - self.goal.rect.center[1]) ** 2
+                )
+                / self.lidar_range
+                for agent in self.agents
+            ]
+        )
