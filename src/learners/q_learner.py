@@ -76,8 +76,9 @@ class QLearner:
 
         # Pick the Q-Values for the actions taken by each agent
         # 全行動分のQ値から、実際に選択された行動のQ値を選ぶ
-        chosen_action_qvals = th.gather(
-            mac_out[:, :-1], dim=3, index=actions).squeeze(3)  # Remove the last dim
+        chosen_action_qvals = th.gather(mac_out[:, :-1], dim=3, index=actions).squeeze(
+            3
+        )  # Remove the last dim
 
         # Calculate the Q-Values necessary for the target
         # ============ Agent Network（Target Network）で目標値計算用のQ値を求める ============
@@ -90,8 +91,7 @@ class QLearner:
 
         # We don't need the first timesteps Q-Value estimate for calculating targets
         # 目標値は次状態のQ値を用いるので最初のタイムステップは不要
-        target_mac_out = th.stack(
-            target_mac_out[1:], dim=1)  # Concat across time
+        target_mac_out = th.stack(target_mac_out[1:], dim=1)  # Concat across time
 
         # Mask out unavailable actions
         # 選択不可能な行動はマイナスの大きい数を入れて、最大のQ値に選ばれないようにする
@@ -117,8 +117,7 @@ class QLearner:
             cur_max_actions = mac_out_detach[:, 1:].max(dim=3, keepdim=True)[1]
             # 上で求めた行動に対応するQ値はTarget Networkから抽出する
             # (最大価値の行動をTarget Networkを用いて選択してはだめなのだろうか？)
-            target_max_qvals = th.gather(
-                target_mac_out, 3, cur_max_actions).squeeze(3)
+            target_max_qvals = th.gather(target_mac_out, 3, cur_max_actions).squeeze(3)
         else:
             # DDQNでない場合
             # 単純にTarget Networkの次状態の最大Q値
@@ -127,26 +126,29 @@ class QLearner:
         # Mix
         # Mixing Networkに入力して重みづけして足されたQ値を得る
         if self.mixer is not None:
-            # （現在の予測値）
+            # （Mixing Net: 現在の予測値）
             # 入力 : 全エージェントの実際に選択された行動のQ値 & グローバルな状態
             chosen_action_qvals = self.mixer(
-                chosen_action_qvals, batch["state"][:, :-1])
+                chosen_action_qvals, batch["state"][:, :-1]
+            )
 
-            # (次状態の最大Q値)
+            # (Mixing Net: 次状態の最大Q値)
             # 入力 : 全エージェントの次状態における最大のQ値 & グローバルな次状態
             target_max_qvals = self.target_mixer(
-                target_max_qvals, batch["state"][:, 1:])
+                target_max_qvals, batch["state"][:, 1:]
+            )
 
         # Calculate 1-step Q-Learning targets
         # Q値の目標値を計算
         # 目標値 = 現在の報酬 + 次状態の最大Q値を割り引いたもの
         # （終端状態は報酬のみ）
-        targets = rewards + self.args.gamma * \
-            (1 - terminated) * target_max_qvals
+        targets = (
+            rewards + self.args.gamma * (1 - terminated) * target_max_qvals.detach()
+        )
 
         # Td-error
         # TD誤差 = 予測値(実際に選択した行動のQ値）- 目標値
-        td_error = (chosen_action_qvals - targets.detach())
+        td_error = chosen_action_qvals - targets.detach()
 
         mask = mask.expand_as(td_error)
 
@@ -156,18 +158,19 @@ class QLearner:
 
         # Normal L2 loss, take mean over actual data
         # MSE（平均二乗誤差）
-        loss = (masked_td_error ** 2).sum() / mask.sum()
+        loss = (masked_td_error**2).sum() / mask.sum()
 
         # Optimise
         # 誤差逆伝播
         self.optimiser.zero_grad()
         loss.backward()
-        grad_norm = th.nn.utils.clip_grad_norm_(
-            self.params, self.args.grad_norm_clip)
+        grad_norm = th.nn.utils.clip_grad_norm_(self.params, self.args.grad_norm_clip)
         self.optimiser.step()
 
         # 定期的にAgent, Mixing両方のTarget Networkを更新
-        if (episode_num - self.last_target_update_episode) / self.args.target_update_interval >= 1.0:
+        if (
+            episode_num - self.last_target_update_episode
+        ) / self.args.target_update_interval >= 1.0:
             self._update_targets()
             self.last_target_update_episode = episode_num
 
@@ -177,11 +180,19 @@ class QLearner:
             self.logger.log_stat("grad_norm", grad_norm, t_env)
             mask_elems = mask.sum().item()
             self.logger.log_stat(
-                "td_error_abs", (masked_td_error.abs().sum().item() / mask_elems), t_env)
-            self.logger.log_stat("q_taken_mean", (chosen_action_qvals *
-                                                  mask).sum().item() / (mask_elems * self.args.n_agents), t_env)
+                "td_error_abs", (masked_td_error.abs().sum().item() / mask_elems), t_env
+            )
             self.logger.log_stat(
-                "target_mean", (targets * mask).sum().item() / (mask_elems * self.args.n_agents), t_env)
+                "q_taken_mean",
+                (chosen_action_qvals * mask).sum().item()
+                / (mask_elems * self.args.n_agents),
+                t_env,
+            )
+            self.logger.log_stat(
+                "target_mean",
+                (targets * mask).sum().item() / (mask_elems * self.args.n_agents),
+                t_env,
+            )
             self.log_stats_t = t_env
 
     def _update_targets(self):
@@ -212,6 +223,11 @@ class QLearner:
         self.target_mac.load_models(path)
         if self.mixer is not None:
             self.mixer.load_state_dict(
-                th.load("{}/mixer.th".format(path), map_location=lambda storage, loc: storage))
+                th.load(
+                    "{}/mixer.th".format(path),
+                    map_location=lambda storage, loc: storage,
+                )
+            )
         self.optimiser.load_state_dict(
-            th.load("{}/opt.th".format(path), map_location=lambda storage, loc: storage))
+            th.load("{}/opt.th".format(path), map_location=lambda storage, loc: storage)
+        )
