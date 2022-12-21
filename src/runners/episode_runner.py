@@ -111,8 +111,8 @@ class EpisodeRunner:
 
         timestep = 0
 
-        if test_mode:
-            print(f"Episode: {episode}".center(60, "-"))
+        # if test_mode:
+        #     print(f"Episode: {episode}".center(60, "-"))
 
         while not terminated:
 
@@ -177,8 +177,8 @@ class EpisodeRunner:
 
         # ---------------- エピソード終了 ----------------
 
-        if test_mode:
-            print(f"Total Reward: {total_reward}".center(60, "-"))
+        # if test_mode:
+        #     print(f"Total Reward: {total_reward}".center(60, "-"))
 
         # 終端状態における情報を取得
         last_data = {

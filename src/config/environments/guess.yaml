@@ -1,6 +1,6 @@
 env: guess
 
-t_max: 1000
+t_max: 20000
 test_nepisode: 10
 test_interval: 50
 log_interval: 5000
@@ -11,4 +11,7 @@ buffer_size: 1000 # Size of the replay buffer
 lr: 0.0005 # Learning rate for agents
 gamma: 0.99
 
-episode_limit: 20
+use_rnn: False
+
+env_args:
+  episode_limit: 2

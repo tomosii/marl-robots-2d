@@ -25,17 +25,18 @@ class GuessEnv:
         """
         # タイムステップをリセット
         self._step_count = 0
+        self.test_mode = False
 
         self.number = random.randint(0, 1)
-        print("Number: ", self.number)
+
+        if self.test_mode:
+            print("Number: ", self.number)
 
         self.guess_turn = False
 
         return self.get_obs(debug=False), self.get_state()
 
     def step(self, actions):
-
-        print("Actions: ", actions)
 
         info = {"is_success": False}
 
@@ -48,7 +49,10 @@ class GuessEnv:
             answer = actions[1]
             reward = self.get_reward(answer)
             self.guess_turn = False
-            print("Guess: ", answer)
+
+            if self.test_mode:
+                print("Guess: ", answer)
+
         else:
             if actions[0] == 1:
                 self.message = 0
@@ -56,10 +60,12 @@ class GuessEnv:
                 self.message = 1
             reward = 0
             self.guess_turn = True
-            print("Send Message: ", self.message)
+            if self.test_mode:
+                print("Send Message: ", self.message)
 
         if reward == 1:
-            print("Success!")
+            if self.test_mode:
+                print("Success!")
             terminated = True
             info["is_success"] = True
 
