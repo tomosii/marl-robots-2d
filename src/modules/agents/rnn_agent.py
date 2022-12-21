@@ -16,8 +16,10 @@ class RNNAgent(nn.Module):
         self.fc1 = nn.Linear(input_shape, args.rnn_hidden_dim)
         # 回帰ニューラルネットワークを使うか
         if self.args.use_rnn:
+            print("use RNN!")
             self.rnn = nn.GRUCell(args.hidden_dim, args.hidden_dim)
         else:
+            print("use Linear instead of RNN!")
             self.rnn = nn.Linear(args.hidden_dim, args.hidden_dim)
         self.fc2 = nn.Linear(args.rnn_hidden_dim, args.n_actions)
 

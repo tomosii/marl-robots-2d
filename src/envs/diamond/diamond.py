@@ -67,7 +67,7 @@ class DiamondEnv:
         enable_render: bool = False,
         test_mode: bool = False,
     ):
-        os.environ["SDL_VIDEODRIVER"] = "dummy"
+        # os.environ["SDL_VIDEODRIVER"] = "dummy"
         pygame.init()
         pygame.display.set_caption("Diamond Env")
         np.set_printoptions(precision=2, suppress=True)
@@ -259,8 +259,8 @@ class DiamondEnv:
                 )
 
         # 描画
-        # if self.enable_render:
-        #     self.render()
+        if self.enable_render:
+            self.render()
 
         return self.reward, self.terminated, info
 

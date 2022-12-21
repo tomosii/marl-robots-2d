@@ -39,6 +39,7 @@ grad_norm_clip: 10 # Reduce magnitude of gradients above this L2 norm
 # --- Agent parameters ---
 agent: "rnn" # Default rnn agent
 rnn_hidden_dim: 64 # Size of hidden state for default rnn agent
+hidden_dim: 64
 
 # 観測に全エージェントのOneHot IDを含めるか？
 # 全エージェントでネットワークを共有するため、どのエージェントの観測かを区別するために必要

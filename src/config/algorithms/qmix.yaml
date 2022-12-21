@@ -23,10 +23,10 @@ mixing_embed_dim: 32
 hypernet_layers: 2
 hypernet_embed: 64
 
-# RNN (GRU) を使うか
-use_rnn: True
+# use Linear instead of RNN (GRU)
+use_rnn: False
 
-# エージェント間でパラメータを共有するか
-mac: "non_shared_mac"
+# disable parameter sharing
+# mac: "non_shared_mac"
 
 name: "qmix"
