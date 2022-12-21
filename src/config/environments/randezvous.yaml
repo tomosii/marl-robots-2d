@@ -3,20 +3,21 @@ env: randezvous
 env_args:
   episode_limit: 200
   debug: True
-  agent_velocity: 3
+  agent_velocity: 2
   guard_velocity: 3
   channel_size: 1
   lidar_angle: 360
   lidar_interval: 90
   reward_success: 100
-  reward_failure: -10
+  reward_failure: -100
 
-t_max: 100000
+t_max: 200000
 test_nepisode: 1
-test_interval: 1000
+test_interval: 500
 log_interval: 5000
-runner_log_interval: 1000
+runner_log_interval: 500
 learner_log_interval: 5000
 
-buffer_size: 1000 # Size of the replay buffer
-lr: 0.0001 # Learning rate for agents
+buffer_size: 2000 # Size of the replay buffer
+lr: 0.0005 # Learning rate for agents
+gamma: 0.97

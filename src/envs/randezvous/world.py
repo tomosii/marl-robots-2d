@@ -36,9 +36,9 @@ class RandezvousWorld(World):
     CORRIDOR_WIDTH = 70
     BORDER_WIDTH = 2
     WALL_WIDTH = 170
-    WALL_HEIGHT = 40
-    WALL_GAP = 40
-    NUM_WALLS = 0
+    WALL_HEIGHT = 45
+    WALL_GAP = 50
+    NUM_WALLS = 1
 
     WALL_COLOR = (45, 50, 56)
     FLOOR_COLOR = (80, 85, 90)

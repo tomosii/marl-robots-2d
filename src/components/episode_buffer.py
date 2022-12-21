@@ -168,6 +168,7 @@ class EpisodeBatch:
                 v = th.tensor(v, dtype=dtype, device=self.device)
 
             # データのシェイプを確認
+            # print(k)
             self._check_safe_view(v, target[k][_slices])
 
             # 形を変形してあてはめる（= バッチに保存）
@@ -188,6 +189,7 @@ class EpisodeBatch:
         """
         バッチに追加するデータの形が正常かどうかをチェック
         """
+        # print(v)
         # print("Rreshape of {} to {}".format(v.shape, dest.shape))
         idx = len(v.shape) - 1
         for s in dest.shape[::-1]:

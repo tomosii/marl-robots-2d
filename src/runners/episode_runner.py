@@ -11,6 +11,7 @@ from controllers.basic_controller import BasicMAC
 from envs_pymarl.foodbank.food_allocation import FoodAllocationEnv
 from envs.diamond.diamond import DiamondEnv
 from envs.randezvous.randezvous import RandezvousEnv
+from envs.guess.guess import GuessEnv
 from utils.logging import Logger
 
 
@@ -28,7 +29,8 @@ class EpisodeRunner:
         # 環境
         # self.env = FoodAllocationEnv(**self.args.env_args)
         # self.env = DiamondEnv(**self.args.env_args)
-        self.env = RandezvousEnv(**self.args.env_args)
+        # self.env = RandezvousEnv(**self.args.env_args)
+        self.env = GuessEnv(**self.args.env_args)
 
         self.episode = 0
 

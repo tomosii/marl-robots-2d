@@ -534,9 +534,9 @@ class RandezvousEnv:
             True,
             self.INFO_TEXT_COLOR,
         )
-        self.sa_screen.blit(sa_title, (self.SA_INFO_MARGIN + 15, 20))
-        self.sa_screen.blit(sa_message_title, (self.SA_INFO_MARGIN + 15, 60))
-        self.sa_screen.blit(sa_message_value, (self.SA_INFO_MARGIN + 100, 100))
+        # self.sa_screen.blit(sa_title, (self.SA_INFO_MARGIN + 15, 20))
+        # self.sa_screen.blit(sa_message_title, (self.SA_INFO_MARGIN + 15, 60))
+        # self.sa_screen.blit(sa_message_value, (self.SA_INFO_MARGIN + 100, 100))
 
         if self.failed:
             result_text = self.font1.render("FAILED", True, (160, 50, 50))
