@@ -3,15 +3,20 @@ import time
 import os
 import numpy as np
 import pygame
+import gym
 import datetime
+from gym import spaces
 from typing import List, Tuple
-from envs.diamond.utils import one_hot_encode
 
+from ray.rllib.env.multi_agent_env import MultiAgentEnv
+
+
+from envs.diamond.utils import one_hot_encode
 from envs.diamond.world import MuseumWorld
 from envs.diamond.agents import Direction
 
 
-class DiamondEnv:
+class DiamondRayEnv(MultiAgentEnv):
     """
     マルチエージェント2Dシミュレーション環境(エージェント数: 2)
     警備員に見つからずにダイアモンドを盗む
@@ -52,6 +57,12 @@ class DiamondEnv:
 
     FONT_NAME = "Arial"
 
+    REWARD_SUCCESS = 100
+    REWARD_FAILURE = -100
+    REWARD_TIME_PENALTY = -0.01
+
+    MAX_EPISODE_STEPS = 300
+
     def __init__(
         self,
         episode_limit: int,
@@ -65,9 +76,10 @@ class DiamondEnv:
         seed=None,
         debug: bool = False,
         enable_render: bool = False,
-        test_mode: bool = False,
     ):
-        os.environ["SDL_VIDEODRIVER"] = "dummy"
+        super().__init__()
+
+        # os.environ['SDL_VIDEODRIVER'] = 'dummy'
         pygame.init()
         pygame.display.set_caption("Diamond Env")
         np.set_printoptions(precision=2, suppress=True)
@@ -115,8 +127,6 @@ class DiamondEnv:
         self.goal_distance = 0
         self.laser_distances = []
 
-        self.now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-
         self.font1 = pygame.font.SysFont(self.FONT_NAME, 45)
         self.font2 = pygame.font.SysFont(self.FONT_NAME, 30)
         self.font3 = pygame.font.SysFont(self.FONT_NAME, 24)
@@ -124,42 +134,29 @@ class DiamondEnv:
         self.font5 = pygame.font.SysFont(self.FONT_NAME, 16)
         self.font6 = pygame.font.SysFont(self.FONT_NAME, 14)
 
-        self.test_mode = test_mode
+        self.now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    def get_env_info(self) -> dict:
-        """
-        環境の情報を取得する
-        """
-        return {
-            "state_shape": self.get_state_size(),
-            "obs_shape": self.get_obs_size(),
-            "n_actions": self.get_total_actions(),
-            "n_agents": self.n_agents,
-            "episode_limit": self.episode_limit,
-        }
+        self.action_space = spaces.Discrete(self.get_action_size())
+        self.observation_space = spaces.Dict(
+            {
+                "ra_pos": spaces.Box(low=0, high=1, shape=(2,), dtype=np.float32),
+                "guard_pos": spaces.Box(low=0, high=1, shape=(2,), dtype=np.float32),
+                "goal_relative_pos": spaces.Box(
+                    low=-1, high=1, shape=(2,), dtype=np.float32
+                ),
+                "lidar": spaces.Box(
+                    low=0, high=1, shape=(self.n_lasers,), dtype=np.float32
+                ),
+                "message": spaces.MultiBinary(self.channel_size),
+            }
+        )
 
-    def get_obs_size(self):
-        """
-        エージェントの部分観測のサイズを返す
-        """
-        # サイズは全エージェントで統一する
-        # RA座標 + 警備員座標 +　レーザー +  ゴール相対座標 + メッセージ
-        # エージェントによって無効な部分は0で埋める
-        self.obs_size = self.n_lasers + 2
+        print("action space:", self.action_space)
+        print("observation space:", self.observation_space)
 
-        # self.obs_size = 2 + 2 + self.n_lasers + 2 + self.channel_size
-        return self.obs_size
-
-    def get_state_size(self):
+    def get_action_size(self):
         """
-        グローバル状態のサイズを返す
-        """
-        # RA座標 + 警備員座標 +　レーザー +  ゴール相対座標 + メッセージ
-        return self.get_obs_size()
-
-    def get_total_actions(self):
-        """
-        エージェントがとることのできる行動の数を返す
+        行動のサイズを返す
         """
         # サイズは全エージェントで統一する
         # エージェントによって無効な部分がある
@@ -174,6 +171,23 @@ class DiamondEnv:
         self.n_actions = n_move_actions + n_send_actions + 1
         return self.n_actions
 
+    def get_obs_size(self):
+        """
+        エージェントの部分観測のサイズを返す
+        """
+        # サイズは全エージェントで統一する
+        # RA座標 + 警備員座標 +　レーザー +  ゴール相対座標 + メッセージ
+        # エージェントによって無効な部分は0で埋める
+        self.obs_size = 2 + 2 + self.n_lasers + 2 + self.channel_size
+        return self.obs_size
+
+    def get_state_size(self):
+        """
+        グローバル状態のサイズを返す
+        """
+        # RA座標 + 警備員座標 +　レーザー +  ゴール相対座標 + メッセージ
+        return self.get_obs_size()
+
     def step(self, actions: List[int]) -> Tuple[float, bool, dict]:
         """
         行動を実行して、環境を1ステップ進める
@@ -184,7 +198,8 @@ class DiamondEnv:
             - info: その他の情報
         """
 
-        assert len(actions) == self.n_agents, "Invalid action size"
+        if not self.single_gym:
+            assert len(actions) == self.n_agents, "Invalid action size"
 
         self.terminated = False
         info = {
@@ -195,29 +210,44 @@ class DiamondEnv:
         # 警備員の移動
         self.world.step()
 
-        # エージェントの行動を実行
-        for agent, action in zip(self.world.agents(), actions):
-            if action == 0:
-                # 何もしない
-                continue
+        if self.single_gym:
+            action = actions
+            agent = self.world.r_agent
+            assert action <= 4, "Invalid action for Robot Agent"
+            # 動く
+            if action == 1:
+                agent.move(Direction.LEFT)
+            elif action == 2:
+                agent.move(Direction.RIGHT)
+            elif action == 3:
+                agent.move(Direction.UP)
+            elif action == 4:
+                agent.move(Direction.DOWN)
 
-            if agent.movable:
-                assert action <= 4, "Invalid action for Robot Agent"
-                # 動く
-                if action == 1:
-                    agent.move(Direction.LEFT)
-                elif action == 2:
-                    agent.move(Direction.RIGHT)
-                elif action == 3:
-                    agent.move(Direction.UP)
-                elif action == 4:
-                    agent.move(Direction.DOWN)
+        else:
+            # エージェントの行動を実行
+            for agent, action in zip(self.world.agents(), actions):
+                if action == 0:
+                    # 何もしない
+                    continue
 
-            if agent.sendable:
-                assert action >= 5, "Invalid action for Sensor Agent"
-                # メッセージを送る
-                if action >= 5:
-                    self.world.send_message(action - 4)
+                if agent.movable:
+                    assert action <= 4, "Invalid action for Robot Agent"
+                    # 動く
+                    if action == 1:
+                        agent.move(Direction.LEFT)
+                    elif action == 2:
+                        agent.move(Direction.RIGHT)
+                    elif action == 3:
+                        agent.move(Direction.UP)
+                    elif action == 4:
+                        agent.move(Direction.DOWN)
+
+                if agent.sendable:
+                    assert action >= 5, "Invalid action for Sensor Agent"
+                    # メッセージを送る
+                    if action >= 5:
+                        self.world.send_message(action - 4)
 
         # タイムステップを進める
         self._episode_steps += 1
@@ -241,30 +271,29 @@ class DiamondEnv:
             self.terminated = True
             info["is_success"] = False
             info["timeout"] = True
-            self.timeout = True
             self.timeout_count += 1
 
         # 報酬を獲得
         self.reward = self.get_reward()
 
-        # 総走行距離
         if self.terminated:
+            # 総走行距離
             info["mileage"] = self.world.get_mileage()
-
-            if self.test_mode:
-                self.render()
-                # 画像を保存
-                pygame.image.save(
-                    self.window, f"images/{self.now_str}_{self._episode_count}.png"
-                )
+            # 画像を保存
+            pygame.image.save(
+                self.window, f"images/{self.now_str}_{self._episode_count}.png"
+            )
 
         # 描画
-        # if self.enable_render:
-        #     self.render()
+        if self.enable_render:
+            self.render()
+
+        if self.single_gym:
+            return self.get_obs(), self.reward, self.terminated, info
 
         return self.reward, self.terminated, info
 
-    def reset(self, episode, test_mode=False, print_log=False):
+    def reset(self, episode=0, test_mode=False, print_log=False):
         """
         環境をリセットする
 
@@ -281,7 +310,12 @@ class DiamondEnv:
         self.goal_distance = 0
         self.laser_distances = []
         self.test_mode = test_mode
-        self.timeout = False
+
+        if self.test_mode:
+            self.enable_render = True
+
+        if self.single_gym:
+            return self.get_obs()
 
         return self.get_obs(), self.get_state()
 
@@ -295,13 +329,10 @@ class DiamondEnv:
         if self.goal_reached:
             # ゴールに到達
             print("Goal reached!")
-            return self.reward_success
+            return self.REWARD_SUCCESS
         elif self.failed:
             # 衝突
-            return self.reward_failure - self.goal_distance
-        elif self.timeout:
-            # タイムアウト
-            return self.reward_failure - self.goal_distance
+            return self.REWARD_FAILURE - 1 * self.goal_distance
         else:
             # 毎ステップ、ゴールまでの距離をペナルティとして与える
             return -1 * self.goal_distance
@@ -331,24 +362,17 @@ class DiamondEnv:
         # 通信チャンネル
         one_hot_message = one_hot_encode(self.world.get_message(), self.channel_size)
 
-        self.obs = np.concatenate(
-            (
-                relative_goal_position,
-                laser_distances,
+        if self.single_gym:
+            self.obs = np.concatenate(
+                (
+                    np.zeros(2),
+                    np.zeros(2),
+                    relative_goal_position,
+                    laser_distances,
+                    np.zeros(self.channel_size),
+                )
             )
-        )
-
-        # self.obs = np.concatenate(
-        #                 (
-        #                     agent_absolute_position,
-        #                     guard_absolute_position,
-        #                     relative_goal_position,
-        #                     laser_distances,
-        #                     one_hot_message,
-        #                 )
-        #             )
-
-        return self.obs
+            return self.obs
 
         for agent in self.world.agents():
             # 観測できない所は0で埋める
@@ -373,9 +397,9 @@ class DiamondEnv:
                         (
                             np.zeros(2),
                             np.zeros(2),
-                            np.zeros(2),
-                            np.zeros(self.n_lasers),
-                            np.zeros(self.channel_size),
+                            relative_goal_position,
+                            laser_distances,
+                            one_hot_message,
                         )
                     )
                 )
@@ -414,13 +438,6 @@ class DiamondEnv:
 
         return np.concatenate(
             (
-                relative_goal_position,
-                laser_distances,
-            )
-        ).astype(np.float32)
-
-        return np.concatenate(
-            (
                 agent_absolute_position,
                 guard_absolute_position,
                 relative_goal_position,
@@ -441,7 +458,7 @@ class DiamondEnv:
             # 「何もしない」は常に選択可能
             if agent.movable:
                 # RA: 移動する行動を選択可能に
-                avail_mask = [0] + [1] * 4 + [0] * self.channel_size
+                avail_mask = [1] + [1] * 4 + [0] * self.channel_size
 
             if agent.sendable:
                 # SA: メッセージを送信する行動を選択可能に
@@ -508,11 +525,11 @@ class DiamondEnv:
             True,
             self.INFO_TEXT_COLOR2,
         )
-        # sa_obs_text = self.font4.render(
-        #     f"RA Obs: {self.obs[1]}",
-        #     True,
-        #     self.INFO_TEXT_COLOR2,
-        # )
+        sa_obs_text = self.font4.render(
+            f"RA Obs: {self.obs[1]}",
+            True,
+            self.INFO_TEXT_COLOR2,
+        )
         reward_text = self.font3.render(
             f"Reward: {self.reward: .2f}",
             True,

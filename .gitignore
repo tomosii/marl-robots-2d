@@ -1,5 +1,7 @@
 tb_logs/
 results/
+images/
+models/
 /wandb
 /recordings
 

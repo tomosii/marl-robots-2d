@@ -34,14 +34,14 @@ class World:
 class MuseumWorld(World):
     AGENT_SIZE = 15
     GUARD_SIZE = 50
-    GOAL_SIZE = 40
+    GOAL_SIZE = 50
 
     CORRIDOR_WIDTH = 70
     BORDER_WIDTH = 2
     WALL_WIDTH = 170
-    WALL_HEIGHT = 80
+    WALL_HEIGHT = 40
     WALL_GAP = 40
-    NUM_WALLS = 2
+    NUM_WALLS = 1
 
     WALL_COLOR = (45, 50, 56)
     FLOOR_COLOR = (80, 85, 90)
@@ -193,7 +193,7 @@ class MuseumWorld(World):
         self.diamond_img = pygame.transform.scale(img, (self.GOAL_SIZE, self.GOAL_SIZE))
 
     def agents(self) -> List[Agent]:
-        return [self.r_agent, self.s_agent]
+        return [self.r_agent]
 
     def reset(self, random_direction=False):
         self.channel = None

@@ -1,7 +1,7 @@
 set -x 
 IMAGE_NAME_TAG=marl-robots-2d:1.0
 #docker run  --rm --net=host -it --gpus '"device=0"' $IMAGE_NAME_TAG bash
-sudo docker run -u `id -u`:`id -g` --rm --net=host -it --gpus all  -v /tmp:/host/tmp -v /etc/group:/etc/group:ro -v /etc/passwd:/etc/passwd:ro -v `pwd`:/workspace $IMAGE_NAME_TAG bash
+sudo docker run -u `id -u`:`id -g` --rm --net=host -it -e DISPLAY=$DISPLAY -v /tmp/.X11-unix/:/tmp/.X11-unix --gpus all  -v /tmp:/host/tmp -v /etc/group:/etc/group:ro -v /etc/passwd:/etc/passwd:ro -v `pwd`:/workspace $IMAGE_NAME_TAG bash
 
 # #!/bin/bash
 # HASH=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 4 | head -n 1)

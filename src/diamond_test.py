@@ -20,7 +20,8 @@ if __name__ == "__main__":
     while True:
         action = random.randint(0, 3)
         print(env.get_avail_actions())
-        reward, done, info = env.step([3, 5])
+        action = random.randint(0, 3)
+        reward, done, info = env.step([action, 5])
         obs = env.get_obs()
         print(obs)
         print(env.world.get_mileage())

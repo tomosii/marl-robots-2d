@@ -105,16 +105,25 @@ class EpisodeRunner:
 
         # ---------------- エピソード開始！！！ ----------------
 
+        timestep = 0
+
+        if test_mode:
+            print(f"Episode: {episode}".center(60, "-"))
+
         while not terminated:
+
+            state = self.env.get_state()
+            avail_actions = self.env.get_avail_actions()
+            obs = self.env.get_obs()
 
             # 遷移前の情報を環境から取得
             pre_transition_data = {
                 # グローバル状態
-                "state": [self.env.get_state()],
+                "state": [state],
                 # 各エージェントの選択可能な行動
-                "avail_actions": [self.env.get_avail_actions()],
+                "avail_actions": [avail_actions],
                 # エージェントの部分観測
-                "obs": [self.env.get_obs()],
+                "obs": [obs],
             }
 
             # バッチに遷移前の情報を追加
@@ -130,6 +139,17 @@ class EpisodeRunner:
             # 行動を出力して、環境からフィードバックを得る
             # 返り値 = 報酬，エピソードが終了したか，環境情報
             reward, terminated, env_info = self.env.step(actions[0])
+
+            # if test_mode and actions[0] != 0:
+            #     print("Timestep: ", timestep)
+            #     print("Observation: ", obs)
+            #     print("State: ", state)
+            #     print("Avail Actions: ", avail_actions)
+            #     print("Action: ", actions[0])
+            #     print("Reward: ", reward)
+            #     print("Terminated: ", terminated)
+
+            #     print()
 
             # このエピソードの総収益
             total_reward += reward
@@ -149,8 +169,12 @@ class EpisodeRunner:
 
             # タイムステップを進める
             self.t += 1
+            timestep += 1
 
         # ---------------- エピソード終了 ----------------
+
+        if test_mode:
+            print(f"Total Reward: {total_reward}".center(60, "-"))
 
         # 終端状態における情報を取得
         last_data = {
