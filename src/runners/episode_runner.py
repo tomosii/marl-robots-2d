@@ -12,6 +12,7 @@ from envs_pymarl.foodbank.food_allocation import FoodAllocationEnv
 from envs.diamond.diamond import DiamondEnv
 from envs.randezvous.randezvous import RandezvousEnv
 from envs.guess.guess import GuessEnv
+from envs.crossroads.crossroads import CrossroadsEnv
 from utils.logging import Logger
 
 
@@ -30,7 +31,8 @@ class EpisodeRunner:
         # self.env = FoodAllocationEnv(**self.args.env_args)
         # self.env = DiamondEnv(**self.args.env_args)
         # self.env = RandezvousEnv(**self.args.env_args)
-        self.env = GuessEnv(**self.args.env_args)
+        # self.env = GuessEnv(**self.args.env_args)
+        self.env = CrossroadsEnv(**self.args.env_args)
 
         self.episode = 0
 

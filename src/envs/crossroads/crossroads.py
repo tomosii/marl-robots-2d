@@ -7,17 +7,15 @@ import datetime
 from typing import List, Tuple
 from envs.diamond.utils import one_hot_encode
 
-from envs.randezvous.world import RandezvousWorld
-from envs.randezvous.agents import Direction
+from envs.crossroads.world import CrossroadsWorld
+from envs.crossroads.agents import Direction
 
 
-class RandezvousEnv:
-    """
-    マルチエージェント2Dシミュレーション環境(エージェント数: 2)
-    """
+class CrossroadsEnv:
+    """ """
 
     OFFSET = 40
-    INFO_HEIGHT = 270
+    INFO_HEIGHT = 340
     INFO_MARGIN = 40
     SA_INFO_WIDTH = 400
     SA_INFO_MARGIN = 25
@@ -27,7 +25,7 @@ class RandezvousEnv:
     INFO_TEXT_COLOR = (220, 220, 220)
     INFO_TEXT_COLOR2 = (145, 150, 155)
 
-    FPS = 60
+    FPS = 120
 
     FONT_NAME = "Arial"
 
@@ -35,10 +33,7 @@ class RandezvousEnv:
         self,
         episode_limit: int,
         agent_velocity: float,
-        guard_velocity: float,
         channel_size: int,
-        lidar_angle: float,
-        lidar_interval: float,
         reward_success: float,
         reward_failure: float,
         seed=None,
@@ -48,7 +43,7 @@ class RandezvousEnv:
     ):
         # os.environ["SDL_VIDEODRIVER"] = "dummy"
         pygame.init()
-        pygame.display.set_caption("Randezvous Env")
+        pygame.display.set_caption("Crossroads Env")
         np.set_printoptions(precision=2, suppress=True)
 
         self.episode_limit = episode_limit
@@ -56,22 +51,14 @@ class RandezvousEnv:
         self.reward_success = reward_success
         self.reward_failure = reward_failure
         self.agent_velocity = agent_velocity
-        self.guard_velocity = guard_velocity
         self.channel_size = channel_size
-        self.lidar_angle = lidar_angle
-        self.lidar_interval = lidar_interval
         self.enable_render = enable_render
 
-        self.world = RandezvousWorld(
+        self.world = CrossroadsWorld(
             self.agent_velocity,
-            self.guard_velocity,
             self.channel_size,
-            self.lidar_angle,
-            self.lidar_interval,
         )
         self.n_agents = len(self.world.agents)
-
-        self.n_lasers = self.world.get_num_lasers()
 
         self.window = None
         self.WINDOW_WIDTH = self.world.WIDTH + self.SA_INFO_WIDTH + 2 * self.OFFSET
@@ -92,7 +79,6 @@ class RandezvousEnv:
         self.timeout_count = 0
 
         self.goal_distance = 0
-        self.laser_distances = []
 
         self.now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -122,27 +108,23 @@ class RandezvousEnv:
         エージェントの部分観測のサイズを返す
         """
         # サイズは全エージェントで統一する
-        # RA座標 + 警備員座標 +　レーザー +  ゴール相対座標 + メッセージ
+        # どちらがゴールか[2] + ゴール1相対距離[1] + ゴール2相対距離[1] + メッセージ[1]
         # エージェントによって無効な部分は0で埋める
-        self.obs_size = 2 + self.n_lasers
+        self.obs_size = 2 + 2 + self.channel_size
 
-        # self.obs_size = 2 + 2 + self.n_lasers + 2 + self.channel_size
         return self.obs_size
 
     def get_state_size(self):
         """
         グローバル状態のサイズを返す
         """
+        # どちらがゴールか + エージェントX座標 + ゴールX座標
         return 4
 
     def get_total_actions(self):
         """
         エージェントがとることのできる行動の数を返す
         """
-        # サイズは全エージェントで統一する
-        # エージェントによって無効な部分がある
-
-        # 前、後、左、右に動く
         self.n_actions = 4
         return self.n_actions
 
@@ -164,40 +146,43 @@ class RandezvousEnv:
             "timeout": False,
         }
 
-        # 警備員の移動
         self.world.step()
 
         # エージェントの行動を実行
         for agent, action in zip(self.world.agents, actions):
-            # 動く
-            if action == 0:
-                agent.move(Direction.LEFT)
-            elif action == 1:
-                agent.move(Direction.RIGHT)
-            elif action == 2:
-                agent.move(Direction.UP)
-            elif action == 3:
-                agent.move(Direction.DOWN)
+            if agent.movable:
+                assert action <= 1, "Invalid action for Robot Agent"
+                # 動く
+                if action == 0:
+                    agent.move(Direction.LEFT)
+                elif action == 1:
+                    agent.move(Direction.RIGHT)
+
+            if agent.sendable:
+                assert action >= 2, "Invalid action for Sensor Agent"
+                # メッセージを送る
+                if action == 2:
+                    self.world.send_message(0)
+                elif action == 3:
+                    self.world.send_message(1)
 
         # タイムステップを進める
-
+        self._episode_steps += 1
         if not self.test_mode:
             self._total_steps += 1
 
-        self._episode_steps += 1
-
         # 終了判定
-        if self.world.check_collision():
-            # 衝突したら終了
-            self.terminated = True
-            info["is_success"] = False
-            self.failed = True
-        elif self.world.check_both_goal():
+        if self.world.check_goal():
             # ゴールしたら終了
             self.terminated = True
             info["is_success"] = True
             self.goal_reached = True
             self.success_count += 1
+        if self.world.check_collision():
+            # 違うゴールに衝突したら終了
+            self.terminated = True
+            info["is_success"] = False
+            self.failed = True
         elif self._episode_steps >= self.episode_limit:
             # ステップ数が上限に達したら終了
             self.terminated = True
@@ -209,10 +194,7 @@ class RandezvousEnv:
         # 報酬を獲得
         self.reward = self.get_reward()
 
-        # 総走行距離
         if self.terminated:
-            # info["mileage"] = self.world.get_mileage()
-
             if self.test_mode:
                 self.render()
                 # 画像を保存
@@ -222,6 +204,7 @@ class RandezvousEnv:
 
         # 描画
         if self.test_mode:
+            # print(actions)
             self.render()
 
         return self.reward, self.terminated, info
@@ -234,7 +217,7 @@ class RandezvousEnv:
             - observations: 観測値
             - states: グローバル状態
         """
-        self.world.reset(random_direction=True)
+        self.world.reset()
 
         self._episode_steps = 0
         self._episode_count += 1
@@ -252,21 +235,18 @@ class RandezvousEnv:
         報酬関数
         """
         # ゴールまでの正規化された距離
-        self.goal_distance = self.world.get_sum_distance_from_goal()
+        self.goal_distance = self.world.get_normalized_distance_from_goal()
 
         if self.goal_reached:
             # ゴールに到達
             print("Goal reached!")
             return self.reward_success
         elif self.failed:
-            # 衝突
-            return self.reward_failure - self.goal_distance
-        # elif self.timeout:
-        #     # タイムアウト
-        #     return self.reward_failure - self.goal_distance
+            # 違うゴールに衝突
+            # print("Failed!")
+            return self.reward_failure
         else:
-            # 毎ステップ、ゴールまでの距離をペナルティとして与える
-            return -1 * self.goal_distance
+            return 0
 
     def get_obs(self) -> List[float]:
         """
@@ -274,52 +254,17 @@ class RandezvousEnv:
         NOTE: 分散実行時はエージェントは自分自身の観測のみ用いるようにする
         """
 
-        # RA座標 + 警備員座標 +　レーザー +  ゴール相対座標 + メッセージ
+        # どっちがゴールか[1] + ゴール1相対距離[1] + ゴール2相対距離[1] + メッセージ[1]
 
         obs = []
 
+        true_goal = np.zeros(2)
+        true_goal[self.world.true_goal] = 1
+
+        goal_distances = self.world.get_normalized_distance_from_all_goals()
+        message = np.array([self.world.get_message()])
+
         for agent in self.world.agents:
-            obs.append(self.world.get_goal_relative_position(agent))
-
-        self.obs = np.array(obs)
-
-        return self.obs
-
-        # RAの絶対座標
-        agent_absolute_position = self.world.get_normalized_agent_position()
-
-        # 警備員の絶対座標
-        guard_absolute_position = self.world.get_normalized_guard_position()
-
-        # RAからみたゴールの相対的な座標
-        relative_goal_position = self.world.get_relative_normalized_goal_position()
-
-        # LiDARセンサー値 [d1, ..., dn]
-        laser_distances = self.world.laser_scan()
-
-        # 通信チャンネル
-        one_hot_message = one_hot_encode(self.world.get_message(), self.channel_size)
-
-        self.obs = np.concatenate(
-            (
-                relative_goal_position,
-                laser_distances,
-            )
-        )
-
-        # self.obs = np.concatenate(
-        #                 (
-        #                     agent_absolute_position,
-        #                     guard_absolute_position,
-        #                     relative_goal_position,
-        #                     laser_distances,
-        #                     one_hot_message,
-        #                 )
-        #             )
-
-        return self.obs
-
-        for agent in self.world.agents():
             # 観測できない所は0で埋める
             if agent.movable:
                 # RA
@@ -327,39 +272,24 @@ class RandezvousEnv:
                     np.concatenate(
                         (
                             np.zeros(2),
-                            np.zeros(2),
-                            relative_goal_position,
-                            laser_distances,
-                            one_hot_message,
+                            goal_distances,
+                            message,
                         )
                     )
                 )
 
             if agent.sendable:
-                # RA
+                # SA
                 obs.append(
                     np.concatenate(
                         (
+                            true_goal,
                             np.zeros(2),
-                            np.zeros(2),
-                            np.zeros(2),
-                            np.zeros(self.n_lasers),
-                            np.zeros(self.channel_size),
+                            np.zeros(1),
                         )
                     )
                 )
-                # SA
-                # obs.append(
-                #     np.concatenate(
-                #         (
-                #             agent_absolute_position,
-                #             guard_absolute_position,
-                #             relative_goal_position,
-                #             np.zeros(self.n_lasers),
-                #             np.zeros(self.channel_size),
-                #         )
-                #     )
-                # )
+
         self.obs = obs
         return np.array(obs)
 
@@ -368,42 +298,20 @@ class RandezvousEnv:
         グローバル状態を取得する
         NOTE: この関数は分散実行時は用いないこと
         """
+        # どちらがゴールか + エージェントX座標 + ゴールX座標
+        true_goal = np.zeros(2)
+        true_goal[self.world.true_goal] = 1
 
-        state = []
-
-        for agent in self.world.agents:
-            state.append(self.world.get_agent_position(agent))
-
-        self.state = np.array(state).flatten()
-        return self.state
-
-        # RAの絶対座標
-        agent_absolute_position = self.world.get_normalized_agent_position()
-        # 警備員の絶対座標
-        guard_absolute_position = self.world.get_normalized_guard_position()
-        # RAからみたゴールの相対的な座標
-        relative_goal_position = self.world.get_relative_normalized_goal_position()
-        # LiDARセンサー値 [d1, ..., dn]
-        laser_distances = self.world.laser_scan()
-        # 通信チャンネル
-        one_hot_message = one_hot_encode(self.world.get_message(), self.channel_size)
+        agent_x = self.world.get_normalized_agent_position()
+        goal_x = self.world.get_normalized_goal_position()
 
         return np.concatenate(
             (
-                relative_goal_position,
-                laser_distances,
+                true_goal,
+                agent_x,
+                goal_x,
             )
-        ).astype(np.float32)
-
-        return np.concatenate(
-            (
-                agent_absolute_position,
-                guard_absolute_position,
-                relative_goal_position,
-                laser_distances,
-                one_hot_message,
-            )
-        ).astype(np.float32)
+        )
 
     def get_avail_actions(self):
         """
@@ -413,7 +321,15 @@ class RandezvousEnv:
         # エージェントごと
         for agent in self.world.agents:
             # マスクを作成
-            avail_mask = [1] * self.n_actions
+            avail_mask = [0] * self.n_actions
+            if agent.movable:
+                # RA: 移動する行動を選択可能に
+                avail_mask = [1] * 2 + [0] * 2
+
+            if agent.sendable:
+                # SA: メッセージを送信する行動を選択可能に
+                avail_mask = [0] * 2 + [1] * 2
+
             avail_actions.append(avail_mask)
 
         # print(avail_actions)
@@ -433,7 +349,7 @@ class RandezvousEnv:
         pygame.display.flip()
 
         if self.terminated:
-            time.sleep(0.5)
+            time.sleep(0.2)
         # elif self.render_mode == "rgb_array":
         #     return pygame.surfarray.array3d(self.screen)
 
@@ -474,11 +390,11 @@ class RandezvousEnv:
             True,
             self.INFO_TEXT_COLOR2,
         )
-        # sa_obs_text = self.font4.render(
-        #     f"RA Obs: {self.obs[1]}",
-        #     True,
-        #     self.INFO_TEXT_COLOR2,
-        # )
+        sa_obs_text = self.font4.render(
+            f"SA Obs: {self.obs[1]}",
+            True,
+            self.INFO_TEXT_COLOR2,
+        )
         reward_text = self.font3.render(
             f"Reward: {self.reward: .2f}",
             True,
@@ -508,6 +424,12 @@ class RandezvousEnv:
         self.info_screen.blit(
             reward_text, (self.INFO_MARGIN + 24, self.INFO_MARGIN + 140)
         )
+        self.info_screen.blit(
+            ra_obs_text, (self.INFO_MARGIN + 24, self.INFO_MARGIN + 185)
+        )
+        self.info_screen.blit(
+            sa_obs_text, (self.INFO_MARGIN + 24, self.INFO_MARGIN + 215)
+        )
 
         pygame.draw.rect(
             self.sa_screen,
@@ -536,9 +458,9 @@ class RandezvousEnv:
             True,
             self.INFO_TEXT_COLOR,
         )
-        # self.sa_screen.blit(sa_title, (self.SA_INFO_MARGIN + 15, 20))
-        # self.sa_screen.blit(sa_message_title, (self.SA_INFO_MARGIN + 15, 60))
-        # self.sa_screen.blit(sa_message_value, (self.SA_INFO_MARGIN + 100, 100))
+        self.sa_screen.blit(sa_title, (self.SA_INFO_MARGIN + 15, 20))
+        self.sa_screen.blit(sa_message_title, (self.SA_INFO_MARGIN + 15, 60))
+        self.sa_screen.blit(sa_message_value, (self.SA_INFO_MARGIN + 170, 60))
 
         if self.failed:
             result_text = self.font1.render("FAILED", True, (160, 50, 50))

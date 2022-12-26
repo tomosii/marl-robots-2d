@@ -46,7 +46,6 @@ class RandezvousWorld(World):
     GOAL_COLOR = (60, 65, 72)
     AGENT1_COLOR = (70, 180, 180)
     AGENT2_COLOR = (180, 60, 60)
-    LASER_COLOR = (100, 105, 115)
     LASER_POINT_COLOR = (200, 60, 60)
 
     def __init__(
@@ -230,20 +229,21 @@ class RandezvousWorld(World):
     def draw(self, screen):
         self.maps.draw(screen)
         self.borders.draw(screen)
-        # self.__draw_lasers(screen)
+        self.__draw_lasers(screen)
         self.players.draw(screen)
         screen.blit(
             self.diamond_img, (self.WIDTH // 2 - self.GOAL_SIZE // 2, self.WALL_GAP)
         )
 
     def __draw_lasers(self, screen):
-        for intersection in self.laser_points:
-            pygame.draw.line(screen, self.LASER_COLOR, self.r_agent.pos, intersection)
-            pygame.draw.circle(screen, self.LASER_POINT_COLOR, intersection, 2.5)
+        for agent in self.agents:
+            for intersection in agent.laser_points:
+                pygame.draw.line(screen, agent.color, agent.pos, intersection)
+                pygame.draw.circle(screen, self.LASER_POINT_COLOR, intersection, 2.5)
 
     def check_collision(self):
-        for player in self.players:
-            if pygame.sprite.spritecollideany(player, self.borders):
+        for agent in self.agents:
+            if pygame.sprite.spritecollideany(agent, self.borders):
                 return True
 
     def check_both_goal(self):
@@ -264,53 +264,17 @@ class RandezvousWorld(World):
     def get_num_lasers(self) -> int:
         return self.lidar_angle // self.lidar_interval
 
-    def laser_scan(self) -> np.ndarray:
-        self.laser_points = self.r_agent.laser_scan(self.__get_obstacle_lines())
+    def laser_scan(self, agent: RobotAgent) -> np.ndarray:
+        obstacle_lines = self.__get_obstacle_lines()
+        laser_points = agent.laser_scan(obstacle_lines)
         laser_distances = [
-            math.sqrt(
-                (point[0] - self.r_agent.pos.x) ** 2
-                + (point[1] - self.r_agent.pos.y) ** 2
-            )
-            for point in self.laser_points
+            math.sqrt((point[0] - agent.pos.x) ** 2 + (point[1] - agent.pos.y) ** 2)
+            for point in laser_points
         ]
         # 正規化
-        return np.array(laser_distances) / self.lidar_range
+        return laser_distances / self.lidar_range
 
-    def get_relative_normalized_goal_position(self) -> np.ndarray:
-        return np.array(
-            [
-                (self.goal.rect.centerx - self.r_agent.pos.x) / self.WIDTH,
-                (self.goal.rect.centery - self.r_agent.pos.y) / self.HEIGHT,
-            ]
-        )
-
-    def get_distance_from_goal(self):
-        """
-        エージェントとゴール間の距離
-        """
-        return math.sqrt(
-            (self.r_agent.pos.x - self.goal.rect.center[0]) ** 2
-            + (self.r_agent.pos.y - self.goal.rect.center[1]) ** 2
-        )
-
-    def get_normalized_distance_from_goal(self) -> float:
-        """
-        エージェントとゴール間の正規化された距離
-        """
-        return self.get_distance_from_goal() / self.lidar_range
-
-    def get_normalized_agent_position(self):
-        return np.array(
-            [self.r_agent.pos.x / self.WIDTH, self.r_agent.pos.y / self.HEIGHT]
-        )
-
-    def get_normalized_guard_position(self):
-        return np.array([self.guard.pos.x / self.WIDTH, self.guard.pos.y / self.HEIGHT])
-
-    def get_mileage(self):
-        return self.r_agent.mileage
-
-    def get_goal_relative_position(self, agent: RobotAgent):
+    def get_relative_normalized_goal_position(self, agent: RobotAgent) -> np.ndarray:
         return np.array(
             [
                 (self.goal.rect.centerx - agent.pos.x) / self.WIDTH,
@@ -318,8 +282,14 @@ class RandezvousWorld(World):
             ]
         )
 
-    def get_agent_position(self, agent: RobotAgent):
+    def get_normalized_agent_position(self, agent: RobotAgent):
         return np.array([agent.pos.x / self.WIDTH, agent.pos.y / self.HEIGHT])
+
+    # def get_normalized_guard_position(self):
+    #     return np.array([self.guard.pos.x / self.WIDTH, self.guard.pos.y / self.HEIGHT])
+
+    # def get_mileage(self):
+    #     return self.r_agent.mileage
 
     def get_sum_distance_from_goal(self):
         return sum(
