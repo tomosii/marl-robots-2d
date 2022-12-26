@@ -108,7 +108,7 @@ class CrossroadsEnv:
         エージェントの部分観測のサイズを返す
         """
         # サイズは全エージェントで統一する
-        # どちらがゴールか[2] + ゴール1相対距離[1] + ゴール2相対距離[1] + メッセージ[1]
+        # どちらがゴールか[2] + ゴール1相対距離[1] + ゴール2相対距離[1] + メッセージ[2]
         # エージェントによって無効な部分は0で埋める
         self.obs_size = 2 + 2 + self.channel_size
 
@@ -118,13 +118,14 @@ class CrossroadsEnv:
         """
         グローバル状態のサイズを返す
         """
-        # どちらがゴールか + エージェントX座標 + ゴールX座標
-        return 4
+        # どちらがゴールか[2] + エージェントX座標[1] + ゴールX座標[1] + メッセージ[2]
+        return 2 + 2 + self.channel_size
 
     def get_total_actions(self):
         """
         エージェントがとることのできる行動の数を返す
         """
+        # 左右移動[2] + メッセージ送信[2]
         self.n_actions = 4
         return self.n_actions
 
@@ -247,6 +248,7 @@ class CrossroadsEnv:
             return self.reward_failure
         else:
             return 0
+            # return -0.01
 
     def get_obs(self) -> List[float]:
         """
@@ -262,7 +264,8 @@ class CrossroadsEnv:
         true_goal[self.world.true_goal] = 1
 
         goal_distances = self.world.get_normalized_distance_from_all_goals()
-        message = np.array([self.world.get_message()])
+
+        message = one_hot_encode(self.world.get_message(), self.world.channel_size)
 
         for agent in self.world.agents:
             # 観測できない所は0で埋める
@@ -285,7 +288,7 @@ class CrossroadsEnv:
                         (
                             true_goal,
                             np.zeros(2),
-                            np.zeros(1),
+                            np.zeros(2),
                         )
                     )
                 )
@@ -298,18 +301,21 @@ class CrossroadsEnv:
         グローバル状態を取得する
         NOTE: この関数は分散実行時は用いないこと
         """
-        # どちらがゴールか + エージェントX座標 + ゴールX座標
+        # どちらがゴールか[2] + エージェントX座標[1] + ゴールX座標[1] + メッセージ[1]
         true_goal = np.zeros(2)
         true_goal[self.world.true_goal] = 1
 
         agent_x = self.world.get_normalized_agent_position()
         goal_x = self.world.get_normalized_goal_position()
 
+        message = one_hot_encode(self.world.get_message(), self.world.channel_size)
+
         return np.concatenate(
             (
                 true_goal,
                 agent_x,
                 goal_x,
+                message,
             )
         )
 

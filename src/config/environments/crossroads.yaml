@@ -4,12 +4,12 @@ env_args:
   episode_limit: 100
   debug: True
   agent_velocity: 5
-  channel_size: 1
+  channel_size: 2
   reward_success: 1
   reward_failure: -1
 
-t_max: 1000000
-test_nepisode: 5
+t_max: 1500000
+test_nepisode: 6
 test_interval: 5000
 log_interval: 5000
 runner_log_interval: 5000

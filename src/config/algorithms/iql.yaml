@@ -5,11 +5,11 @@ action_selector: "epsilon_greedy"
 epsilon_start: 1.0
 epsilon_finish: 0.05
 # epsilon_anneal_time: 50000
-epsilon_anneal_proportion: 0.9
+epsilon_anneal_proportion: 0.8
 
 runner: "episode"
 
-buffer_size: 500
+buffer_size: 5000
 
 # update the target network every {} episodes
 target_update_interval: 200
@@ -19,7 +19,7 @@ target_update_interval: 200
 
 agent_output_type: "q"
 learner: "q_learner"
-double_q: False
+double_q: True
 mixer: # Mixer becomes None
 
 name: "iql"

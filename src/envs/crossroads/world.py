@@ -130,7 +130,7 @@ class CrossroadsWorld(World):
         )
 
     def reset(self):
-        self.channel = 0
+        self.channel = None
         self.r_agent.reset(self.AGENT_POS)
         self.s_agent.reset()
         self.true_goal = random.randint(0, 1)
