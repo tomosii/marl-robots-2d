@@ -36,6 +36,7 @@ class CrossroadsEnv:
         channel_size: int,
         reward_success: float,
         reward_failure: float,
+        reward_step: float,
         seed=None,
         debug: bool = False,
         enable_render: bool = False,
@@ -50,6 +51,7 @@ class CrossroadsEnv:
         self.debug = debug
         self.reward_success = reward_success
         self.reward_failure = reward_failure
+        self.reward_step = reward_step
         self.agent_velocity = agent_velocity
         self.channel_size = channel_size
         self.enable_render = enable_render
@@ -247,8 +249,7 @@ class CrossroadsEnv:
             # print("Failed!")
             return self.reward_failure
         else:
-            return 0
-            # return -0.01
+            return self.reward_step
 
     def get_obs(self) -> List[float]:
         """
