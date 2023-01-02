@@ -7,9 +7,9 @@ env_args:
   channel_size: 2
   reward_success: 1
   reward_failure: -1
-  reward_step: -0.01
+  reward_step: 0
 
-t_max: 1000000
+t_max: 2000000
 test_nepisode: 10
 test_interval: 5000
 log_interval: 5000
@@ -17,5 +17,5 @@ runner_log_interval: 5000
 learner_log_interval: 5000
 
 buffer_size: 5000 # Size of the replay buffer
-lr: 0.0005 # Learning rate for agents
-gamma: 0.98
+lr: 0.0003 # Learning rate for agents
+gamma: 0.99
