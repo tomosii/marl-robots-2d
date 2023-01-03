@@ -7,6 +7,7 @@ env_args:
   channel_size: 2
   lidar_angle: 360
   lidar_interval: 90
+  n_goals: 2
   reward_success: 1
   reward_failure: -1
   reward_step: 0

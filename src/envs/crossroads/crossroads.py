@@ -176,9 +176,9 @@ class CrossroadsEnv:
                     agent.move(Direction.DOWN)
 
             if agent.sendable:
-                assert action in range(4, 4+self.channel_size + 1), "Invalid action for Message Agent"
+                assert action in range(4, 4 + self.channel_size + 1), "Invalid action for Message Agent"
                 # メッセージを送る
-                self.world.send_message(action - 4)
+                self.world.send_message(int(action - 4))
 
         # タイムステップを進める
         self._episode_steps += 1
