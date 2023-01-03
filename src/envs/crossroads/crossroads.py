@@ -5,9 +5,9 @@ import numpy as np
 import pygame
 import datetime
 from typing import List, Tuple
-from envs.diamond.utils import one_hot_encode
+from envs.crossroads.utils import one_hot_encode
 
-from envs.crossroads.world import CrossroadsWorld
+from envs.crossroads.world import TwoCrossroadsWorld
 from envs.crossroads.agents import Direction
 
 
@@ -34,9 +34,12 @@ class CrossroadsEnv:
         episode_limit: int,
         agent_velocity: float,
         channel_size: int,
+        lidar_angle: float,
+        lidar_interval: float,
         reward_success: float,
         reward_failure: float,
         reward_step: float,
+        n_goals: int,
         seed=None,
         debug: bool = False,
         enable_render: bool = False,
@@ -49,6 +52,9 @@ class CrossroadsEnv:
 
         self.episode_limit = episode_limit
         self.debug = debug
+        self.n_goals = n_goals
+        self.lidar_angle = lidar_angle
+        self.lidar_interval = lidar_interval
         self.reward_success = reward_success
         self.reward_failure = reward_failure
         self.reward_step = reward_step
@@ -56,11 +62,15 @@ class CrossroadsEnv:
         self.channel_size = channel_size
         self.enable_render = enable_render
 
-        self.world = CrossroadsWorld(
+        self.world = TwoCrossroadsWorld(
             self.agent_velocity,
             self.channel_size,
+            self.lidar_angle,
+            self.lidar_interval,
         )
         self.n_agents = len(self.world.agents)
+
+        self.n_lasers = self.world.get_num_lasers()
 
         self.window = None
         self.WINDOW_WIDTH = self.world.WIDTH + self.SA_INFO_WIDTH + 2 * self.OFFSET
@@ -110,9 +120,9 @@ class CrossroadsEnv:
         エージェントの部分観測のサイズを返す
         """
         # サイズは全エージェントで統一する
-        # どちらがゴールか[2] + ゴール1相対距離[1] + ゴール2相対距離[1] + メッセージ[2]
+        # どちらがゴールか[2] + ゴール1相対座標[2] + ゴール2相対座標[2] + LiDAR[] + メッセージ[2]
         # エージェントによって無効な部分は0で埋める
-        self.obs_size = 2 + 2 + self.channel_size
+        self.obs_size = 2 + 4 + self.n_lasers + self.channel_size
 
         return self.obs_size
 
@@ -120,15 +130,15 @@ class CrossroadsEnv:
         """
         グローバル状態のサイズを返す
         """
-        # どちらがゴールか[2] + エージェントX座標[1] + ゴールX座標[1] + メッセージ[2]
-        return 2 + 2 + self.channel_size
+        # どちらがゴールか[2] + ゴール相対座標[2] +　LiDAR[] メッセージ[2]
+        return 2 + 2 + self.n_lasers + self.channel_size
 
     def get_total_actions(self):
         """
         エージェントがとることのできる行動の数を返す
         """
-        # 左右移動[2] + メッセージ送信[2]
-        self.n_actions = 4
+        # 上下左右移動[4] + メッセージ送信[2]
+        self.n_actions = 4 + self.channel_size
         return self.n_actions
 
     def step(self, actions: List[int]) -> Tuple[float, bool, dict]:
@@ -154,20 +164,21 @@ class CrossroadsEnv:
         # エージェントの行動を実行
         for agent, action in zip(self.world.agents, actions):
             if agent.movable:
-                assert action <= 1, "Invalid action for Robot Agent"
+                assert action <= 3, "Invalid action for Robot Agent"
                 # 動く
                 if action == 0:
                     agent.move(Direction.LEFT)
                 elif action == 1:
                     agent.move(Direction.RIGHT)
+                elif action == 2:
+                    agent.move(Direction.UP)
+                elif action == 3:
+                    agent.move(Direction.DOWN)
 
             if agent.sendable:
-                assert action >= 2, "Invalid action for Sensor Agent"
+                assert action in range(4, 4+self.channel_size + 1), "Invalid action for Message Agent"
                 # メッセージを送る
-                if action == 2:
-                    self.world.send_message(0)
-                elif action == 3:
-                    self.world.send_message(1)
+                self.world.send_message(action - 4)
 
         # タイムステップを進める
         self._episode_steps += 1
@@ -181,8 +192,8 @@ class CrossroadsEnv:
             info["is_success"] = True
             self.goal_reached = True
             self.success_count += 1
-        if self.world.check_collision():
-            # 違うゴールに衝突したら終了
+        elif self.world.check_collision():
+            # 違うゴールや壁に衝突したら終了
             self.terminated = True
             info["is_success"] = False
             self.failed = True
@@ -201,9 +212,7 @@ class CrossroadsEnv:
             if self.test_mode:
                 self.render()
                 # 画像を保存
-                pygame.image.save(
-                    self.window, f"images/{self.now_str}_{self._episode_count}.png"
-                )
+                # self.__save_image()
 
         # 描画
         if self.test_mode:
@@ -238,18 +247,20 @@ class CrossroadsEnv:
         報酬関数
         """
         # ゴールまでの正規化された距離
-        self.goal_distance = self.world.get_normalized_distance_from_goal()
+        self.goal_distance = self.world.get_distance_from_goal()
 
         if self.goal_reached:
             # ゴールに到達
-            print("Goal reached!")
+            # print("Goal reached!")
             return self.reward_success
+            # return self.reward_success - (self._episode_steps / self.episode_limit)
         elif self.failed:
-            # 違うゴールに衝突
+            # 違うゴールか壁に衝突
             # print("Failed!")
             return self.reward_failure
         else:
             return self.reward_step
+        
 
     def get_obs(self) -> List[float]:
         """
@@ -257,14 +268,16 @@ class CrossroadsEnv:
         NOTE: 分散実行時はエージェントは自分自身の観測のみ用いるようにする
         """
 
-        # どっちがゴールか[1] + ゴール1相対距離[1] + ゴール2相対距離[1] + メッセージ[1]
+        # どっちがゴールか[1] + ゴール1相対位置[2] + ゴール2相対位置[2] + LiDAR +  メッセージ
 
         obs = []
 
         true_goal = np.zeros(2)
         true_goal[self.world.true_goal] = 1
 
-        goal_distances = self.world.get_normalized_distance_from_all_goals()
+        goal_positions = self.world.get_relative_goals_positions()
+
+        self.laser_distances = self.world.laser_scan()
 
         message = one_hot_encode(self.world.get_message(), self.world.channel_size)
 
@@ -276,7 +289,8 @@ class CrossroadsEnv:
                     np.concatenate(
                         (
                             np.zeros(2),
-                            goal_distances,
+                            goal_positions,
+                            self.laser_distances,
                             message,
                         )
                     )
@@ -288,8 +302,9 @@ class CrossroadsEnv:
                     np.concatenate(
                         (
                             true_goal,
-                            np.zeros(2),
-                            np.zeros(2),
+                            np.zeros(4),
+                            np.zeros(self.n_lasers),
+                            np.zeros(self.channel_size),
                         )
                     )
                 )
@@ -302,20 +317,19 @@ class CrossroadsEnv:
         グローバル状態を取得する
         NOTE: この関数は分散実行時は用いないこと
         """
-        # どちらがゴールか[2] + エージェントX座標[1] + ゴールX座標[1] + メッセージ[1]
+        # どちらがゴールか[2] + ゴール相対座標[2] +　LiDAR[] メッセージ[2]
         true_goal = np.zeros(2)
         true_goal[self.world.true_goal] = 1
 
-        agent_x = self.world.get_normalized_agent_position()
-        goal_x = self.world.get_normalized_goal_position()
+        goal_pos = self.world.get_relative_true_goal_position()
 
         message = one_hot_encode(self.world.get_message(), self.world.channel_size)
 
         return np.concatenate(
             (
                 true_goal,
-                agent_x,
-                goal_x,
+                goal_pos,
+                self.laser_distances,
                 message,
             )
         )
@@ -331,11 +345,11 @@ class CrossroadsEnv:
             avail_mask = [0] * self.n_actions
             if agent.movable:
                 # RA: 移動する行動を選択可能に
-                avail_mask = [1] * 2 + [0] * 2
+                avail_mask = [1] * 4 + [0] * 2
 
             if agent.sendable:
                 # SA: メッセージを送信する行動を選択可能に
-                avail_mask = [0] * 2 + [1] * 2
+                avail_mask = [0] * 4 + [1] * 2
 
             avail_actions.append(avail_mask)
 
@@ -479,6 +493,11 @@ class CrossroadsEnv:
             self.info_screen.blit(
                 result_text, (self.WINDOW_WIDTH - 300, self.INFO_MARGIN + 50)
             )
+
+    def __save_image(self):
+        pygame.image.save(
+                    self.window, f"images/{self.now_str}_{self._episode_count}.png"
+                )
 
     def close(self):
         """

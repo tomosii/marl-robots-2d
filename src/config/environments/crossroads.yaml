@@ -5,12 +5,14 @@ env_args:
   debug: True
   agent_velocity: 5
   channel_size: 2
+  lidar_angle: 360
+  lidar_interval: 90
   reward_success: 1
   reward_failure: -1
   reward_step: 0
 
-t_max: 2000000
-test_nepisode: 10
+t_max: 2500000
+test_nepisode: 6
 test_interval: 5000
 log_interval: 5000
 runner_log_interval: 5000
@@ -19,3 +21,6 @@ learner_log_interval: 5000
 buffer_size: 5000 # Size of the replay buffer
 lr: 0.0003 # Learning rate for agents
 gamma: 0.99
+
+# disable parameter sharing
+mac: "non_shared_mac"
